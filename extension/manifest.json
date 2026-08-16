@@ -3,7 +3,8 @@
   "name": "Runtime Monitoring Extension",
   "version": "0.1.0",
   "description": "Initial milestone for runtime monitoring session tracking.",
-  "permissions": ["tabs", "storage"],
+  "permissions": ["tabs", "storage", "scripting", "activeTab"],
+  "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js",
     "type": "module"

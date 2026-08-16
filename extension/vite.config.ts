@@ -14,7 +14,7 @@ export default defineConfig({
       input: {
         popup: resolve(rootDir, 'src/popup/main.tsx'),
         background: resolve(rootDir, 'src/background/service-worker.ts'),
-        content: resolve(rootDir, 'src/content/navigation-observer.ts')
+        content: resolve(rootDir, 'src/content/content-entry.ts')
       },
       output: {
         entryFileNames: (chunkInfo) => {

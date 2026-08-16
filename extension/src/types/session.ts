@@ -37,7 +37,8 @@ export type MessageType =
   | 'STOP_SESSION'
   | 'GET_SESSION_STATE'
   | 'GET_CURRENT_PAGE'
-  | 'ROUTE_EVENT';
+  | 'ROUTE_EVENT'
+  | 'CONSOLE_EVENT';
 
 export interface BaseMessage {
   type: MessageType;
@@ -68,12 +69,24 @@ export interface RouteEventMessage extends BaseMessage {
   timestamp: string;
 }
 
+export interface ConsoleEventMessage extends BaseMessage {
+  type: 'CONSOLE_EVENT';
+  payload: {
+    level: 'log' | 'info' | 'warn' | 'error' | 'debug';
+    message: string;
+    arguments: unknown[];
+    sourceUrl: string | null;
+    timestamp: string;
+  };
+}
+
 export type ExtensionMessage =
   | StartSessionMessage
   | StopSessionMessage
   | GetSessionStateMessage
   | GetCurrentPageMessage
-  | RouteEventMessage;
+  | RouteEventMessage
+  | ConsoleEventMessage;
 
 export type RuntimeResponse =
   | { ok: true; type: 'SESSION_STARTED'; session: SessionState }

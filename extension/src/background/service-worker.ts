@@ -12,6 +12,201 @@ const ROUTE_LOG_PREFIX = '[ROUTE]';
 
 const routeDedupCache = new Map<string, number>();
 
+function installMainWorldConsoleObserver(): void {
+  const marker = '__runtimeConsoleObserverInstalled';
+  const maxDepth = 4;
+  const maxItems = 20;
+  const maxStringLength = 2000;
+
+  if ((window as typeof window & { [marker]?: boolean })[marker]) {
+    return;
+  }
+
+  (window as typeof window & { [marker]?: boolean })[marker] = true;
+
+  const levels: Array<'log' | 'info' | 'warn' | 'error' | 'debug'> = ['log', 'info', 'warn', 'error', 'debug'];
+
+  function truncateString(value: string): string {
+    return value.length > maxStringLength ? `${value.slice(0, maxStringLength)}...` : value;
+  }
+
+  function safeStringifyValue(value: unknown): string {
+    try {
+      if (typeof value === 'string') return truncateString(value);
+      if (typeof value === 'number' || typeof value === 'boolean' || value === null) return String(value);
+      if (typeof value === 'undefined') return 'undefined';
+      if (typeof value === 'function') return value.name ? `[Function: ${value.name}]` : '[Function]';
+      if (typeof value === 'symbol') return value.toString();
+      if (value instanceof Error) return value.message || value.name || 'Error';
+      return Object.prototype.toString.call(value);
+    } catch {
+      return '[Unserializable]';
+    }
+  }
+
+  function serializeConsoleValue(value: unknown, depth = 0, seen = new WeakSet<object>()): Record<string, unknown> {
+    if (depth > maxDepth) {
+      return { type: 'truncated', value: '[Depth limit reached]' };
+    }
+
+    if (value === null) return { type: 'null', value: null };
+    if (typeof value === 'undefined') return { type: 'undefined', value: undefined };
+    if (typeof value === 'string') return { type: 'string', value: truncateString(value) };
+    if (typeof value === 'number') return { type: 'number', value: String(value) };
+    if (typeof value === 'boolean') return { type: 'boolean', value: value };
+    if (typeof value === 'bigint') return { type: 'bigint', value: value.toString() };
+    if (typeof value === 'symbol') return { type: 'symbol', value: value.toString() };
+    if (typeof value === 'function') return { type: 'function', value: value.name ? `[Function: ${value.name}]` : '[Function]' };
+    if (value instanceof Error) {
+      const result: Record<string, unknown> = { type: 'error' };
+      if (value.name) result.name = value.name;
+      if (value.message) result.message = truncateString(value.message);
+      if (value.stack) result.stack = truncateString(value.stack);
+      return result;
+    }
+    if (value instanceof Date) return { type: 'date', value: value.toISOString() };
+    if (Array.isArray(value)) {
+      const items = value.slice(0, maxItems).map((item) => serializeConsoleValue(item, depth + 1, seen));
+      return { type: 'array', value: items, truncated: value.length > maxItems };
+    }
+    if (typeof value === 'object') {
+      if (seen.has(value as object)) {
+        return { type: 'circular', value: '[Circular]' };
+      }
+      seen.add(value as object);
+      const entries = Object.entries(value as Record<string, unknown>).slice(0, maxItems);
+      const result: Record<string, unknown> = {};
+      for (const [key, nestedValue] of entries) {
+        result[key] = serializeConsoleValue(nestedValue, depth + 1, seen);
+      }
+      return { type: 'object', value: result, truncated: Object.keys(value as Record<string, unknown>).length > maxItems };
+    }
+    return { type: 'unknown', value: safeStringifyValue(value) };
+  }
+
+  function formatSerializedValueForMessage(value: Record<string, unknown>, depth = 0, seen = new WeakSet<object>()): string {
+    const type = value.type;
+
+    if (type === 'string') return String(value.value);
+    if (type === 'number' || type === 'boolean' || type === 'null' || type === 'undefined') return String(value.value);
+    if (type === 'bigint' || type === 'symbol' || type === 'function' || type === 'date') return String(value.value);
+    if (type === 'unknown') return String(value.value);
+    if (type === 'circular') return '[Circular]';
+    if (type === 'truncated') return '[Truncated]';
+    if (type === 'error') {
+      const name = typeof value.name === 'string' && value.name ? value.name : 'Error';
+      const message = typeof value.message === 'string' && value.message ? value.message : '';
+      return message ? `${name}: ${message}` : name;
+    }
+    if (type === 'array') {
+      const entries = Array.isArray(value.value) ? value.value : [];
+      const rendered = entries.map((entry) => {
+        if (entry && typeof entry === 'object' && 'type' in entry) {
+          return formatSerializedValueForMessage(entry as Record<string, unknown>, depth + 1, seen);
+        }
+        return String(entry);
+      });
+      const suffix = value.truncated ? ', ...' : '';
+      return `[${rendered.join(', ')}${suffix}]`;
+    }
+    if (type === 'object') {
+      const entries = value.value && typeof value.value === 'object' ? Object.entries(value.value as Record<string, unknown>) : [];
+      if (entries.length === 0) {
+        return '{}';
+      }
+
+      const rendered = entries.map(([key, nestedValue]) => {
+        if (nestedValue && typeof nestedValue === 'object' && 'type' in nestedValue) {
+          return `${key}: ${formatSerializedValueForMessage(nestedValue as Record<string, unknown>, depth + 1, seen)}`;
+        }
+        return `${key}: ${String(nestedValue)}`;
+      });
+
+      const suffix = value.truncated ? ', ...' : '';
+      return `{${rendered.join(', ')}${suffix}}`;
+    }
+
+    return String(value.value ?? '');
+  }
+
+  function buildMessageFromArgs(args: unknown[]): string {
+    return args
+      .map((arg) => {
+        const serialized = serializeConsoleValue(arg, 0, new WeakSet<object>());
+        return formatSerializedValueForMessage(serialized as Record<string, unknown>, 0, new WeakSet<object>());
+      })
+      .join(' ');
+  }
+
+  for (const level of levels) {
+    const original = console[level];
+    console[level] = function (...args: unknown[]) {
+      try {
+        const payload = {
+          __runtimeConsoleMessage: true,
+          level,
+          timestamp: new Date().toISOString(),
+          message: buildMessageFromArgs(args).slice(0, maxStringLength),
+          arguments: args.map((arg) => serializeConsoleValue(arg, 0, new WeakSet())),
+          sourceUrl: window.location ? window.location.href : null
+        };
+        window.postMessage(payload, '*');
+      } catch {
+        try {
+          window.postMessage({
+            __runtimeConsoleMessage: true,
+            level,
+            timestamp: new Date().toISOString(),
+            message: '[Console serialization failed]',
+            arguments: [{ type: 'error', message: 'Console argument serialization failed.' }],
+            sourceUrl: window.location ? window.location.href : null
+          }, '*');
+        } catch {
+          // no-op
+        }
+      }
+
+      return original.apply(this, args);
+    };
+  }
+}
+
+async function ensureConsoleObserverForTab(tabId: number): Promise<void> {
+  const session = await readSessionState();
+  if (!session || session.status !== 'active') {
+    return;
+  }
+
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab || !tab.url || !isSupportedUrl(tab.url)) {
+    return;
+  }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: installMainWorldConsoleObserver
+    });
+  } catch (error) {
+    console.error('[CONSOLE] Failed to install main-world observer for tab:', tabId, error);
+  }
+}
+
+async function restoreConsoleObserversForActiveSession(): Promise<void> {
+  const session = await readSessionState();
+  if (!session || session.status !== 'active') {
+    return;
+  }
+
+  const tabs = await chrome.tabs.query({}).catch(() => [] as chrome.tabs.Tab[]);
+  for (const tab of tabs) {
+    if (tab.id !== undefined && tab.url && isSupportedUrl(tab.url)) {
+      await ensureConsoleObserverForTab(tab.id);
+    }
+  }
+}
+
 function formatMessage(message: unknown): string {
   if (typeof message === 'string') {
     return message;
@@ -143,6 +338,8 @@ async function startSession(): Promise<RuntimeResponse> {
   };
 
   await writeSessionState(session);
+  await ensureConsoleObserverForTab(activeTab.id ?? 0);
+
   console.log(`${SESSION_LOG_PREFIX} Started ${sessionId}`);
 
   return { ok: true, type: 'SESSION_STARTED', session };
@@ -277,59 +474,98 @@ async function updateActiveTab(tabId: number | null): Promise<void> {
   console.log(`${TAB_LOG_PREFIX} Activated tab ${tabId ?? 'none'} in session ${session.sessionId}`);
 }
 
-chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
-  void (async () => {
-    try {
-      const typedMessage = message as ExtensionMessage;
-      if (!typedMessage || typeof typedMessage.type !== 'string') {
-        sendResponse({ ok: false, type: 'ERROR', message: 'Malformed message payload.' });
-        return;
-      }
+let runtimeMessageListenerRegistered = false;
 
-      switch (typedMessage.type) {
-        case 'START_SESSION': {
-          const result = await startSession();
-          sendResponse(result);
+if (!runtimeMessageListenerRegistered) {
+  chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
+    void (async () => {
+      try {
+        const typedMessage = message as ExtensionMessage;
+        if (!typedMessage || typeof typedMessage.type !== 'string') {
+          sendResponse({ ok: false, type: 'ERROR', message: 'Malformed message payload.' });
           return;
         }
-        case 'STOP_SESSION': {
-          const result = await stopSession();
-          sendResponse(result);
-          return;
-        }
-        case 'GET_SESSION_STATE': {
-          const result = await handleGetSessionState();
-          sendResponse(result);
-          return;
-        }
-        case 'GET_CURRENT_PAGE': {
-          const result = await handleGetCurrentPage();
-          sendResponse(result);
-          return;
-        }
-        case 'ROUTE_EVENT': {
-          const payload = typedMessage as { url: string; navigationType: 'initial' | 'pushState' | 'replaceState' | 'popstate' | 'hashchange'; timestamp: string; path: string };
-          const tabId = sender.tab?.id ?? (await readSessionState())?.activeTabId ?? null;
-          if (tabId === null) {
-            sendResponse({ ok: false, type: 'ERROR', message: 'No active tab available for route capture.' });
+
+        switch (typedMessage.type) {
+          case 'START_SESSION': {
+            const result = await startSession();
+            sendResponse(result);
             return;
           }
+          case 'STOP_SESSION': {
+            const result = await stopSession();
+            sendResponse(result);
+            return;
+          }
+          case 'GET_SESSION_STATE': {
+            const result = await handleGetSessionState();
+            sendResponse(result);
+            return;
+          }
+          case 'GET_CURRENT_PAGE': {
+            const result = await handleGetCurrentPage();
+            sendResponse(result);
+            return;
+          }
+          case 'ROUTE_EVENT': {
+            const payload = typedMessage as { url: string; navigationType: 'initial' | 'pushState' | 'replaceState' | 'popstate' | 'hashchange'; timestamp: string; path: string };
+            const tabId = sender.tab?.id ?? (await readSessionState())?.activeTabId ?? null;
+            if (tabId === null) {
+              sendResponse({ ok: false, type: 'ERROR', message: 'No active tab available for route capture.' });
+              return;
+            }
 
-          await captureRouteEvent(tabId, payload.url, payload.navigationType);
-          sendResponse({ ok: true, type: 'ROUTE_CAPTURED', route: null });
-          return;
+            await captureRouteEvent(tabId, payload.url, payload.navigationType);
+            sendResponse({ ok: true, type: 'ROUTE_CAPTURED', route: null });
+            return;
+          }
+          case 'CONSOLE_EVENT': {
+            const payload = typedMessage as {
+              type: 'CONSOLE_EVENT';
+              payload: {
+                level: 'log' | 'info' | 'warn' | 'error' | 'debug';
+                message: string;
+                arguments: unknown[];
+                sourceUrl: string | null;
+                timestamp: string;
+              };
+            };
+            await handleConsoleEvent(payload.payload);
+            sendResponse({ ok: true, type: 'ROUTE_CAPTURED', route: null });
+            return;
+          }
+          default: {
+            sendResponse({ ok: false, type: 'ERROR', message: `Unsupported message type: ${String((typedMessage as { type?: unknown }).type)}` });
+          }
         }
-        default: {
-          sendResponse({ ok: false, type: 'ERROR', message: `Unsupported message type: ${String((typedMessage as { type?: unknown }).type)}` });
-        }
+      } catch (error) {
+        console.error('[SESSION] Unhandled message error:', error);
+        sendResponse({ ok: false, type: 'ERROR', message: formatMessage(error) });
       }
-    } catch (error) {
-      console.error('[SESSION] Unhandled message error:', error);
-      sendResponse({ ok: false, type: 'ERROR', message: formatMessage(error) });
-    }
-  })();
+    })();
 
-  return true;
+    return true;
+  });
+
+  runtimeMessageListenerRegistered = true;
+}
+
+chrome.tabs.onCreated.addListener(async (tab) => {
+  try {
+    if (!tab.id || !tab.url || !isSupportedUrl(tab.url)) {
+      return;
+    }
+
+    const session = await readSessionState();
+    if (!session || session.status !== 'active') {
+      return;
+    }
+
+    await createPageForNavigation(tab.id, tab.url);
+    await ensureConsoleObserverForTab(tab.id);
+  } catch (error) {
+    console.error('[TAB] Creation handler failed:', error);
+  }
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
@@ -347,6 +583,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     }
 
     await createPageForNavigation(tabId, tab.url);
+    await ensureConsoleObserverForTab(tabId);
   } catch (error) {
     console.error('[PAGE] Navigation handler failed:', error);
   }
@@ -366,6 +603,7 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
     }
 
     await updateActiveTab(tabId);
+    await ensureConsoleObserverForTab(tabId);
     console.log(`${TAB_LOG_PREFIX} Active tab switched to ${tabId}; current tracked page: ${getLatestPageForTab(session, tabId)?.pageId ?? 'none'}`);
   } catch (error) {
     console.error('[TAB] Activation handler failed:', error);
@@ -395,9 +633,47 @@ const runtimeEventPipeline = new RuntimeEventPipeline(runtimeEventRepository);
 
 void runtimeEventRepository.initialize().then(() => {
   console.log('[EVENT_DB] Runtime event database initialized on service worker startup');
+  void restoreConsoleObserversForActiveSession();
 }).catch((error) => {
   console.error('[EVENT_DB] Runtime event database initialization failed:', error);
 });
+
+async function handleConsoleEvent(payload: { level: 'log' | 'info' | 'warn' | 'error' | 'debug'; message: string; arguments: unknown[]; sourceUrl: string | null; timestamp: string }): Promise<void> {
+  const session = await readSessionState();
+  if (!session || session.status !== 'active') {
+    console.log('[CONSOLE] Monitoring inactive; event ignored');
+    return;
+  }
+
+  const activeTab = session.activeTabId !== null ? await chrome.tabs.get(session.activeTabId).catch(() => null) : null;
+  const page = activeTab ? getLatestPageForTab(session, activeTab.id ?? 0) : getCurrentTrackedPage(session);
+  const route = page ? session.routes.filter((item) => item.pageId === page.pageId).at(-1) ?? null : null;
+
+  const runtimeEvent = {
+    eventId: generateEventId(),
+    sessionId: session.sessionId,
+    pageId: page?.pageId ?? null,
+    routeId: route?.routeId ?? null,
+    tabId: activeTab?.id ?? session.activeTabId ?? null,
+    timestamp: payload.timestamp || createRuntimeEventTimestamp(),
+    type: 'console' as const,
+    data: {
+      level: payload.level,
+      message: payload.message || 'Console event',
+      arguments: Array.isArray(payload.arguments) ? payload.arguments : [],
+      sourceUrl: payload.sourceUrl,
+      rawTimestamp: payload.timestamp
+    }
+  };
+
+  const saved = await runtimeEventPipeline.record(runtimeEvent);
+  if (!saved.ok) {
+    console.error('[CONSOLE] Failed to store runtime event:', saved.error);
+    return;
+  }
+
+  console.log('[CONSOLE] Event stored', saved.event.eventId);
+}
 
 console.log('[SESSION] Service worker initialized');
 
