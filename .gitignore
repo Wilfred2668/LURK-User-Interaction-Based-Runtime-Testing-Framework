@@ -1,0 +1,12 @@
+# Node / Vite builds
+extension/node_modules/
+extension/dist/
+extension/.vite/
+
+# Editor / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
