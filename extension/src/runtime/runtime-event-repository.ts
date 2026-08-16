@@ -97,6 +97,10 @@ function runStoreRequest<T>(
 }
 
 export class RuntimeEventRepository {
+  async initialize(): Promise<IDBDatabase> {
+    return openDatabase();
+  }
+
   async add<T>(event: RuntimeEvent<T>): Promise<RuntimeEvent<T>> {
     return new Promise((resolve, reject) => {
       openDatabase()

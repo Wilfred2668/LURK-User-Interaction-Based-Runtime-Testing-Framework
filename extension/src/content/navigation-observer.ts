@@ -33,6 +33,10 @@ function sendRouteEvent(url: string, navigationType: RouteNavigationEventType) {
       return;
     }
 
+    if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+      return;
+    }
+
     const { path, hash } = getRoutePartsFromUrl(url);
     const payload = {
       type: 'ROUTE_EVENT',

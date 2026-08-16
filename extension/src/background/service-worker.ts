@@ -393,6 +393,12 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 
 const runtimeEventPipeline = new RuntimeEventPipeline(runtimeEventRepository);
 
+void runtimeEventRepository.initialize().then(() => {
+  console.log('[EVENT_DB] Runtime event database initialized on service worker startup');
+}).catch((error) => {
+  console.error('[EVENT_DB] Runtime event database initialization failed:', error);
+});
+
 console.log('[SESSION] Service worker initialized');
 
 (globalThis as typeof globalThis & {
