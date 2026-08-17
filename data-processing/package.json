@@ -1,0 +1,23 @@
+{
+  "name": "runtime-monitoring-data-processing",
+  "version": "0.1.0",
+  "description": "Layer 2 Data Processing and Raw Data Normalization for Runtime Monitoring",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "runtime-monitoring",
+    "data-processing",
+    "normalization"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.5.3",
+    "vitest": "^2.0.5"
+  }
+}
