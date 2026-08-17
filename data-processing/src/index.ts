@@ -3,3 +3,5 @@ export * from './validation/validation-error.js';
 export * from './validation/validate-session.js';
 export * from './normalization/normalize-event.js';
 export * from './normalization/normalize-session.js';
+export * from './aggregation/aggregate-events.js';
+export * from './aggregation/aggregate-session.js';

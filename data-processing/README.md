@@ -12,25 +12,34 @@ This module is the Layer 2 processing foundation for the Runtime Monitoring syst
 ## Usage
 
 ```typescript
-import { normalizeSession, validateSessionPackage } from './src/index.js';
+import {
+  normalizeSession,
+  validateSessionPackage,
+  aggregateSession,
+  aggregateEvents
+} from './src/index.js';
 
-// Validate a finalized raw session package
+// 1. Validate a finalized raw session package
 const validation = validateSessionPackage(rawSessionPackage);
 if (!validation.valid) {
   console.error('Validation errors:', validation.errors);
 }
 
-// Normalize the session package
+// 2. Normalize the raw session package
 const normalized = normalizeSession(rawSessionPackage);
-console.log(normalized.session, normalized.websites, normalized.events);
+
+// 3. Aggregate repeated patterns within a configurable time window
+const aggregated = aggregateSession(normalized, { windowMs: 5000 });
+console.log(aggregated.session, aggregated.websites, aggregated.patterns);
 ```
 
 ## Running Tests & Build
 
 ```bash
-# Run test suite
+# Run test suite (46 unit & integration tests)
 npm test
 
 # Build TypeScript
 npm run build
 ```
+
