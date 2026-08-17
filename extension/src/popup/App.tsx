@@ -25,7 +25,11 @@ export default function App() {
       setErrorMessage('');
       const result = await sendMessage('GET_SESSION_STATE');
       if (result.ok && result.type === 'SESSION_STATE') {
-        setSession(result.session);
+        if (result.session && result.session.status === 'active') {
+          setSession(result.session);
+        } else {
+          setSession(null);
+        }
       }
 
       const currentPageResult = await sendMessage('GET_CURRENT_PAGE');

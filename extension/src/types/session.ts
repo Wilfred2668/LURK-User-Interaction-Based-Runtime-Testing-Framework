@@ -1,4 +1,6 @@
-export type SessionStatus = 'active' | 'stopped';
+import type { RuntimeEvent } from './runtime-event';
+
+export type SessionStatus = 'active' | 'completed' | 'finalized' | 'stopped';
 export type RouteNavigationType = 'initial' | 'pushState' | 'replaceState' | 'popstate' | 'hashchange';
 
 export interface WebsiteRecord {
@@ -35,6 +37,8 @@ export interface RouteRecord {
 export interface SessionState {
   sessionId: string;
   startedAt: string;
+  endedAt?: string;
+  durationMs?: number;
   status: SessionStatus;
   activeTabId: number | null;
   rootUrl: string | null;
@@ -43,11 +47,36 @@ export interface SessionState {
   routes: RouteRecord[];
 }
 
+export interface FinalizedPageData extends PageRecord {
+  routes: RouteRecord[];
+  events: RuntimeEvent[];
+}
+
+export interface FinalizedWebsiteData extends WebsiteRecord {
+  pages: FinalizedPageData[];
+}
+
+export interface FinalizedSessionMetadata {
+  sessionId: string;
+  status: SessionStatus;
+  startedAt: string;
+  endedAt: string;
+  durationMs: number;
+  rootUrl: string | null;
+  activeTabId: number | null;
+}
+
+export interface FinalizedSessionPackage {
+  session: FinalizedSessionMetadata;
+  websites: FinalizedWebsiteData[];
+}
+
 export type MessageType =
   | 'START_SESSION'
   | 'STOP_SESSION'
   | 'GET_SESSION_STATE'
   | 'GET_CURRENT_PAGE'
+  | 'GET_FINALIZED_SESSION'
   | 'ROUTE_EVENT'
   | 'CONSOLE_EVENT'
   | 'NETWORK_EVENT'
@@ -175,11 +204,16 @@ export interface PerformanceEventMessage extends BaseMessage {
   payload: PerformanceRuntimeData;
 }
 
+export interface GetFinalizedSessionMessage extends BaseMessage {
+  type: 'GET_FINALIZED_SESSION';
+}
+
 export type ExtensionMessage =
   | StartSessionMessage
   | StopSessionMessage
   | GetSessionStateMessage
   | GetCurrentPageMessage
+  | GetFinalizedSessionMessage
   | RouteEventMessage
   | ConsoleEventMessage
   | NetworkEventMessage
@@ -187,8 +221,9 @@ export type ExtensionMessage =
 
 export type RuntimeResponse =
   | { ok: true; type: 'SESSION_STARTED'; session: SessionState }
-  | { ok: true; type: 'SESSION_STOPPED'; session: SessionState | null }
+  | { ok: true; type: 'SESSION_STOPPED'; session: SessionState | null; package: FinalizedSessionPackage | null }
   | { ok: true; type: 'SESSION_STATE'; session: SessionState | null }
   | { ok: true; type: 'CURRENT_PAGE'; page: PageRecord | null; session: SessionState | null }
+  | { ok: true; type: 'FINALIZED_SESSION'; package: FinalizedSessionPackage | null }
   | { ok: true; type: 'ROUTE_CAPTURED'; route: RouteRecord | null }
   | { ok: false; type: 'ERROR'; message: string };

@@ -1,7 +1,18 @@
-import { clearSessionState, readSessionState, writeSessionState } from '../storage/session-store';
+import {
+  clearSessionState,
+  readFinalizedSessionPackage,
+  readSessionState,
+  writeFinalizedSessionPackage,
+  writeSessionState
+} from '../storage/session-store';
 import type {
   ConsoleEventMessage,
   ExtensionMessage,
+  FinalizedPageData,
+  FinalizedSessionMetadata,
+  FinalizedSessionPackage,
+  FinalizedWebsiteData,
+  GetFinalizedSessionMessage,
   NetworkEventMessage,
   NetworkRuntimeData,
   PageRecord,
@@ -12,6 +23,7 @@ import type {
   SessionState,
   WebsiteRecord
 } from '../types/session';
+import type { RuntimeEvent } from '../types/runtime-event';
 import { RuntimeEventPipeline, createRuntimeEventTimestamp, generateEventId } from '../runtime/runtime-event-pipeline';
 import { runtimeEventRepository } from '../runtime/runtime-event-repository';
 import {
@@ -994,6 +1006,80 @@ async function startSession(): Promise<RuntimeResponse> {
   return { ok: true, type: 'SESSION_STARTED', session };
 }
 
+async function buildFinalizedSessionPackage(
+  session: SessionState,
+  endedAt: string,
+  durationMs: number
+): Promise<FinalizedSessionPackage> {
+  const events = await runtimeEventRepository.getBySessionId(session.sessionId);
+
+  const eventsByPageId = new Map<string, RuntimeEvent[]>();
+  const unassignedEvents: RuntimeEvent[] = [];
+
+  for (const event of events) {
+    if (event.pageId) {
+      const pageEvents = eventsByPageId.get(event.pageId) || [];
+      pageEvents.push(event);
+      eventsByPageId.set(event.pageId, pageEvents);
+    } else {
+      unassignedEvents.push(event);
+    }
+  }
+
+  const routesByPageId = new Map<string, RouteRecord[]>();
+  for (const route of session.routes) {
+    const pageRoutes = routesByPageId.get(route.pageId) || [];
+    pageRoutes.push(route);
+    routesByPageId.set(route.pageId, pageRoutes);
+  }
+
+  const pagesByWebsiteId = new Map<string, FinalizedPageData[]>();
+  for (const page of session.pages) {
+    const pageData: FinalizedPageData = {
+      ...page,
+      routes: routesByPageId.get(page.pageId) || [],
+      events: eventsByPageId.get(page.pageId) || []
+    };
+
+    const targetKey = page.websiteId || page.websiteOrigin;
+    const websitePages = pagesByWebsiteId.get(targetKey) || [];
+    websitePages.push(pageData);
+    pagesByWebsiteId.set(targetKey, websitePages);
+  }
+
+  if (unassignedEvents.length > 0 && session.pages.length > 0) {
+    const firstPage = session.pages[0];
+    const targetKey = firstPage.websiteId || firstPage.websiteOrigin;
+    const websitePages = pagesByWebsiteId.get(targetKey);
+    if (websitePages && websitePages.length > 0) {
+      websitePages[0].events.push(...unassignedEvents);
+    }
+  }
+
+  const websites: FinalizedWebsiteData[] = (session.websites || []).map((website) => {
+    const targetKey = website.websiteId || website.origin;
+    return {
+      ...website,
+      pages: pagesByWebsiteId.get(targetKey) || pagesByWebsiteId.get(website.origin) || []
+    };
+  });
+
+  const sessionMetadata: FinalizedSessionMetadata = {
+    sessionId: session.sessionId,
+    status: 'finalized',
+    startedAt: session.startedAt,
+    endedAt,
+    durationMs,
+    rootUrl: session.rootUrl,
+    activeTabId: session.activeTabId
+  };
+
+  return {
+    session: sessionMetadata,
+    websites
+  };
+}
+
 async function stopSession(): Promise<RuntimeResponse> {
   const currentSession = await readSessionState();
 
@@ -1001,15 +1087,44 @@ async function stopSession(): Promise<RuntimeResponse> {
     return { ok: false, type: 'ERROR', message: 'No active monitoring session to stop.' };
   }
 
+  // Idempotency: if already finalized, return the existing package without re-finalizing
+  if (currentSession.status === 'finalized' && currentSession.endedAt) {
+    const existingPackage = await readFinalizedSessionPackage();
+    if (existingPackage) {
+      return { ok: true, type: 'SESSION_STOPPED', session: currentSession, package: existingPackage };
+    }
+    const pkg = await buildFinalizedSessionPackage(
+      currentSession,
+      currentSession.endedAt,
+      currentSession.durationMs || 0
+    );
+    await writeFinalizedSessionPackage(pkg);
+    return { ok: true, type: 'SESSION_STOPPED', session: currentSession, package: pkg };
+  }
+
+  const endedAt = new Date().toISOString();
+  const durationMs = Math.max(0, new Date(endedAt).getTime() - new Date(currentSession.startedAt).getTime());
+
   const stoppedSession: SessionState = {
     ...currentSession,
-    status: 'stopped'
+    status: 'finalized',
+    endedAt,
+    durationMs
   };
 
-  await clearSessionState();
-  console.log(`${SESSION_LOG_PREFIX} Stopped ${stoppedSession.sessionId}`);
+  await writeSessionState(stoppedSession);
 
-  return { ok: true, type: 'SESSION_STOPPED', session: stoppedSession };
+  const sessionPackage = await buildFinalizedSessionPackage(stoppedSession, endedAt, durationMs);
+  await writeFinalizedSessionPackage(sessionPackage);
+
+  console.log(`${SESSION_LOG_PREFIX} Finalized ${stoppedSession.sessionId} (duration: ${durationMs}ms, websites: ${sessionPackage.websites.length})`);
+
+  return { ok: true, type: 'SESSION_STOPPED', session: stoppedSession, package: sessionPackage };
+}
+
+async function handleGetFinalizedSession(): Promise<RuntimeResponse> {
+  const pkg = await readFinalizedSessionPackage();
+  return { ok: true, type: 'FINALIZED_SESSION', package: pkg };
 }
 
 async function handleGetSessionState(): Promise<RuntimeResponse> {
@@ -1161,6 +1276,11 @@ if (!runtimeMessageListenerRegistered) {
           }
           case 'GET_CURRENT_PAGE': {
             const result = await handleGetCurrentPage();
+            sendResponse(result);
+            return;
+          }
+          case 'GET_FINALIZED_SESSION': {
+            const result = await handleGetFinalizedSession();
             sendResponse(result);
             return;
           }
@@ -1523,3 +1643,26 @@ console.log('[SESSION] Service worker initialized');
     return { cleared: false, error: message };
   }
 };
+
+(globalThis as typeof globalThis & {
+  __runtimeSessionExport?: () => Promise<FinalizedSessionPackage | null>;
+}).__runtimeSessionExport = async () => {
+  const currentSession = await readSessionState();
+  if (currentSession) {
+    const endedAt = currentSession.endedAt || new Date().toISOString();
+    const durationMs = currentSession.durationMs || Math.max(0, new Date(endedAt).getTime() - new Date(currentSession.startedAt).getTime());
+    const pkg = await buildFinalizedSessionPackage(currentSession, endedAt, durationMs);
+    console.log('[SESSION] Exported session package:', pkg);
+    return pkg;
+  }
+
+  const cached = await readFinalizedSessionPackage();
+  if (cached) {
+    console.log('[SESSION] Exported cached finalized session package:', cached);
+    return cached;
+  }
+
+  console.log('[SESSION] No session available to export.');
+  return null;
+};
+
