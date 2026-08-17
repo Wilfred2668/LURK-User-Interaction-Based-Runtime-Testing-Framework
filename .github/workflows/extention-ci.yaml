@@ -4,11 +4,15 @@ on:
   push:
     paths:
       - "extension/**"
+      - ".github/workflows/extention-ci.yaml"
+      - ".github/workflows/extension-ci.yaml"
       - ".github/workflows/extension-ci.yml"
 
   pull_request:
     paths:
       - "extension/**"
+      - ".github/workflows/extention-ci.yaml"
+      - ".github/workflows/extension-ci.yaml"
       - ".github/workflows/extension-ci.yml"
 
 jobs:

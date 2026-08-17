@@ -1,0 +1,43 @@
+name: Data Processing CI
+
+on:
+  push:
+    paths:
+      - "data-processing/**"
+      - ".github/workflows/data-processing-ci.yaml"
+      - ".github/workflows/data-processing-ci.yml"
+
+  pull_request:
+    paths:
+      - "data-processing/**"
+      - ".github/workflows/data-processing-ci.yaml"
+      - ".github/workflows/data-processing-ci.yml"
+
+jobs:
+  test-and-build:
+    name: Test & Build Data Processing
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: data-processing
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: data-processing/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        run: npm test
+
+      - name: Build TypeScript
+        run: npm run build
