@@ -9,13 +9,24 @@ import type {
   PerformanceRuntimeData,
   RouteRecord,
   RuntimeResponse,
-  SessionState
+  SessionState,
+  WebsiteRecord
 } from '../types/session';
 import { RuntimeEventPipeline, createRuntimeEventTimestamp, generateEventId } from '../runtime/runtime-event-pipeline';
 import { runtimeEventRepository } from '../runtime/runtime-event-repository';
-import { generatePageId, generateRouteId, generateSessionId, isSupportedUrl, normalizeDocumentUrl, safeTitle } from '../utils/page';
+import {
+  extractWebsiteOrigin,
+  generatePageId,
+  generateRouteId,
+  generateSessionId,
+  generateWebsiteId,
+  isSupportedUrl,
+  normalizeDocumentUrl,
+  safeTitle
+} from '../utils/page';
 
 const SESSION_LOG_PREFIX = '[SESSION]';
+const WEBSITE_LOG_PREFIX = '[WEBSITE]';
 const PAGE_LOG_PREFIX = '[PAGE]';
 const NAV_LOG_PREFIX = '[NAVIGATION]';
 const TAB_LOG_PREFIX = '[TAB]';
@@ -828,17 +839,57 @@ function getCurrentTrackedPage(session: SessionState): PageRecord | null {
   return session.pages.length > 0 ? session.pages[session.pages.length - 1] : null;
 }
 
-function createPageRecord(sessionId: string, tab: chrome.tabs.Tab, urlOverride?: string): PageRecord {
+function ensureWebsiteRecord(
+  session: SessionState,
+  origin: string
+): { website: WebsiteRecord; websites: WebsiteRecord[] } {
+  const now = new Date().toISOString();
+  const existing = session.websites?.find((w) => w.origin === origin);
+
+  if (existing) {
+    const updatedWebsites = session.websites.map((w) =>
+      w.origin === origin ? { ...w, lastSeenAt: now } : w
+    );
+    return {
+      website: { ...existing, lastSeenAt: now },
+      websites: updatedWebsites
+    };
+  }
+
+  const newWebsite: WebsiteRecord = {
+    websiteId: generateWebsiteId(),
+    sessionId: session.sessionId,
+    origin,
+    firstSeenAt: now,
+    lastSeenAt: now
+  };
+
+  const updatedWebsites = [...(session.websites || []), newWebsite];
+  console.log(`${WEBSITE_LOG_PREFIX} Registered new website ${newWebsite.websiteId} -> ${origin} in session ${session.sessionId}`);
+  return {
+    website: newWebsite,
+    websites: updatedWebsites
+  };
+}
+
+function createPageRecord(
+  sessionId: string,
+  tab: chrome.tabs.Tab,
+  website: WebsiteRecord,
+  urlOverride?: string
+): PageRecord {
   const rawUrl = urlOverride ?? tab.url ?? 'about:blank';
   const url = normalizeDocumentUrl(rawUrl);
   const title = tab.title ? safeTitle(tab.title) : '';
   const pageId = generatePageId();
 
-  console.log(`${PAGE_LOG_PREFIX} Created ${pageId} for tab ${tab.id ?? 'unknown'} -> ${url}`);
+  console.log(`${PAGE_LOG_PREFIX} Created ${pageId} for tab ${tab.id ?? 'unknown'} -> ${url} (website: ${website.origin})`);
 
   return {
     pageId,
     sessionId,
+    websiteId: website.websiteId,
+    websiteOrigin: website.origin,
     tabId: tab.id ?? 0,
     url,
     title,
@@ -904,10 +955,24 @@ async function startSession(): Promise<RuntimeResponse> {
     return { ok: false, type: 'ERROR', message: 'The active tab is unsupported for monitoring. Use a normal web page.' };
   }
 
+  const origin = extractWebsiteOrigin(activeTab.url);
+  if (!origin) {
+    return { ok: false, type: 'ERROR', message: 'Unable to determine the canonical website origin for the active tab.' };
+  }
+
   const sessionId = generateSessionId();
   const startedAt = new Date().toISOString();
   const rootUrl = activeTab.url;
-  const initialPage = createPageRecord(sessionId, activeTab, activeTab.url);
+
+  const initialWebsite: WebsiteRecord = {
+    websiteId: generateWebsiteId(),
+    sessionId,
+    origin,
+    firstSeenAt: startedAt,
+    lastSeenAt: startedAt
+  };
+
+  const initialPage = createPageRecord(sessionId, activeTab, initialWebsite, activeTab.url);
   const initialRoute = createRouteRecord(sessionId, initialPage.pageId, initialPage.tabId, activeTab.url, 'initial');
 
   const session: SessionState = {
@@ -916,6 +981,7 @@ async function startSession(): Promise<RuntimeResponse> {
     status: 'active',
     activeTabId: activeTab.id ?? null,
     rootUrl,
+    websites: [initialWebsite],
     pages: [initialPage],
     routes: [initialRoute]
   };
@@ -923,7 +989,7 @@ async function startSession(): Promise<RuntimeResponse> {
   await writeSessionState(session);
   await ensureObserversForTab(activeTab.id ?? 0);
 
-  console.log(`${SESSION_LOG_PREFIX} Started ${sessionId}`);
+  console.log(`${SESSION_LOG_PREFIX} Started ${sessionId} on website ${initialWebsite.origin}`);
 
   return { ok: true, type: 'SESSION_STARTED', session };
 }
@@ -984,18 +1050,26 @@ async function createPageForNavigation(tabId: number, url?: string): Promise<voi
     return;
   }
 
-  const newPage = createPageRecord(session.sessionId, tab, normalizedUrl);
+  const origin = extractWebsiteOrigin(url) || extractWebsiteOrigin(normalizedUrl);
+  if (!origin) {
+    console.log(`${NAV_LOG_PREFIX} Ignored navigation with invalid origin for tab ${tabId}: ${url}`);
+    return;
+  }
+
+  const { website, websites } = ensureWebsiteRecord(session, origin);
+  const newPage = createPageRecord(session.sessionId, tab, website, normalizedUrl);
   const initialRoute = createRouteRecord(session.sessionId, newPage.pageId, newPage.tabId, url, 'initial');
   const nextSession: SessionState = {
     ...session,
     activeTabId: tab.id ?? session.activeTabId,
     rootUrl: session.rootUrl ?? normalizedUrl ?? null,
+    websites,
     pages: [...session.pages, newPage],
     routes: [...session.routes, initialRoute]
   };
 
   await writeSessionState(nextSession);
-  console.log(`${NAV_LOG_PREFIX} New page created for tab ${tabId}: ${newPage.pageId} -> ${normalizedUrl}`);
+  console.log(`${NAV_LOG_PREFIX} New page created for tab ${tabId}: ${newPage.pageId} -> ${normalizedUrl} (website: ${website.origin})`);
 }
 
 async function captureRouteEvent(

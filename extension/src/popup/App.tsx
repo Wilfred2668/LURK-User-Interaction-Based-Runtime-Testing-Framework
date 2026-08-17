@@ -118,6 +118,11 @@ export default function App() {
           </div>
 
           <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Website Origin</div>
+            <div style={{ fontSize: 12, wordBreak: 'break-all' }}>{page?.websiteOrigin ?? (session.websites?.[0]?.origin ?? 'N/A')}</div>
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
             <div style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em' }}>URL</div>
             <div style={{ fontSize: 12, wordBreak: 'break-all' }}>{page?.url ?? session.rootUrl ?? 'N/A'}</div>
           </div>

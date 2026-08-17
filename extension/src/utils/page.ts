@@ -39,3 +39,25 @@ export function generateRouteId(): string {
 export function safeTitle(title?: string): string {
   return title && title.trim() ? title.trim() : 'Untitled page';
 }
+
+export function extractWebsiteOrigin(rawUrl: string | undefined): string | null {
+  if (!rawUrl || !isSupportedUrl(rawUrl)) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(rawUrl);
+    if (!parsed.protocol || !parsed.host) {
+      return null;
+    }
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+export function generateWebsiteId(): string {
+  const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return `web_${stamp}_${suffix}`;
+}

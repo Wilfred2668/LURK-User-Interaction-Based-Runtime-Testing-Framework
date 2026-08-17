@@ -1,9 +1,19 @@
 export type SessionStatus = 'active' | 'stopped';
 export type RouteNavigationType = 'initial' | 'pushState' | 'replaceState' | 'popstate' | 'hashchange';
 
+export interface WebsiteRecord {
+  websiteId: string;
+  sessionId: string;
+  origin: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
 export interface PageRecord {
   pageId: string;
   sessionId: string;
+  websiteId: string;
+  websiteOrigin: string;
   tabId: number;
   url: string;
   title: string;
@@ -28,6 +38,7 @@ export interface SessionState {
   status: SessionStatus;
   activeTabId: number | null;
   rootUrl: string | null;
+  websites: WebsiteRecord[];
   pages: PageRecord[];
   routes: RouteRecord[];
 }
