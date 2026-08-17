@@ -8,14 +8,14 @@ export function createValidSingleWebsiteSession(): RawFinalizedSessionPackage {
       startedAt: '2026-08-17T08:00:00.000Z',
       endedAt: '2026-08-17T08:05:00.000Z',
       durationMs: 300000,
-      rootUrl: 'https://www.hidevs.xyz/',
+      rootUrl: 'https://www.example.com/',
       activeTabId: 101
     },
     websites: [
       {
         websiteId: 'web_20260817_w01',
         sessionId: 'sess_20260817_test001',
-        origin: 'https://www.hidevs.xyz',
+        origin: 'https://www.example.com',
         firstSeenAt: '2026-08-17T08:00:00.000Z',
         lastSeenAt: '2026-08-17T08:04:30.000Z',
         pages: [
@@ -23,9 +23,9 @@ export function createValidSingleWebsiteSession(): RawFinalizedSessionPackage {
             pageId: 'page_001',
             sessionId: 'sess_20260817_test001',
             websiteId: 'web_20260817_w01',
-            websiteOrigin: 'https://www.hidevs.xyz',
+            websiteOrigin: 'https://www.example.com',
             tabId: 101,
-            url: 'https://www.hidevs.xyz/',
+            url: 'https://www.example.com/',
             title: 'HiDevs Home',
             createdAt: '2026-08-17T08:00:00.000Z',
             routes: [
@@ -34,7 +34,7 @@ export function createValidSingleWebsiteSession(): RawFinalizedSessionPackage {
                 sessionId: 'sess_20260817_test001',
                 pageId: 'page_001',
                 tabId: 101,
-                url: 'https://www.hidevs.xyz/',
+                url: 'https://www.example.com/',
                 path: '/',
                 hash: '',
                 timestamp: '2026-08-17T08:00:00.000Z',
@@ -54,7 +54,7 @@ export function createValidSingleWebsiteSession(): RawFinalizedSessionPackage {
                   level: 'info',
                   message: 'App loaded',
                   arguments: ['App loaded'],
-                  sourceUrl: 'https://www.hidevs.xyz/main.js',
+                  sourceUrl: 'https://www.example.com/main.js',
                   rawTimestamp: '2026-08-17T08:00:05.000Z'
                 }
               },
@@ -69,14 +69,14 @@ export function createValidSingleWebsiteSession(): RawFinalizedSessionPackage {
                 data: {
                   requestType: 'fetch',
                   method: 'GET',
-                  url: 'https://www.hidevs.xyz/api/config',
+                  url: 'https://www.example.com/api/config',
                   status: 200,
                   statusText: 'OK',
                   ok: true,
                   durationMs: 45,
                   failureType: null,
                   errorMessage: null,
-                  sourceUrl: 'https://www.hidevs.xyz/',
+                  sourceUrl: 'https://www.example.com/',
                   timestamp: '2026-08-17T08:00:06.000Z'
                 }
               },
@@ -98,7 +98,7 @@ export function createValidSingleWebsiteSession(): RawFinalizedSessionPackage {
                   dnsMs: 15,
                   connectMs: 30,
                   responseMs: 120,
-                  sourceUrl: 'https://www.hidevs.xyz/',
+                  sourceUrl: 'https://www.example.com/',
                   timestamp: '2026-08-17T08:00:07.000Z'
                 }
               }
@@ -108,9 +108,9 @@ export function createValidSingleWebsiteSession(): RawFinalizedSessionPackage {
             pageId: 'page_002',
             sessionId: 'sess_20260817_test001',
             websiteId: 'web_20260817_w01',
-            websiteOrigin: 'https://www.hidevs.xyz',
+            websiteOrigin: 'https://www.example.com',
             tabId: 101,
-            url: 'https://www.hidevs.xyz/ai-interns',
+            url: 'https://www.example.com/ai-interns',
             title: 'AI Interns',
             createdAt: '2026-08-17T08:02:00.000Z',
             routes: [
@@ -119,7 +119,7 @@ export function createValidSingleWebsiteSession(): RawFinalizedSessionPackage {
                 sessionId: 'sess_20260817_test001',
                 pageId: 'page_002',
                 tabId: 101,
-                url: 'https://www.hidevs.xyz/ai-interns',
+                url: 'https://www.example.com/ai-interns',
                 path: '/ai-interns',
                 hash: '',
                 timestamp: '2026-08-17T08:02:00.000Z',
@@ -130,7 +130,7 @@ export function createValidSingleWebsiteSession(): RawFinalizedSessionPackage {
                 sessionId: 'sess_20260817_test001',
                 pageId: 'page_002',
                 tabId: 101,
-                url: 'https://www.hidevs.xyz/ai-interns#faq',
+                url: 'https://www.example.com/ai-interns#faq',
                 path: '/ai-interns',
                 hash: '#faq',
                 timestamp: '2026-08-17T08:03:00.000Z',
@@ -151,7 +151,7 @@ export function createValidSingleWebsiteSession(): RawFinalizedSessionPackage {
                   name: 'self',
                   startTime: 1250,
                   durationMs: 85,
-                  sourceUrl: 'https://www.hidevs.xyz/ai-interns',
+                  sourceUrl: 'https://www.example.com/ai-interns',
                   timestamp: '2026-08-17T08:03:10.000Z'
                 }
               }
@@ -171,14 +171,14 @@ export function createMultiWebsiteSession(): RawFinalizedSessionPackage {
       startedAt: '2026-08-17T09:00:00.000Z',
       endedAt: '2026-08-17T09:10:00.000Z',
       durationMs: 600000,
-      rootUrl: 'https://www.hidevs.xyz/',
+      rootUrl: 'https://www.example.com/',
       activeTabId: 201
     },
     websites: [
       {
         websiteId: 'web_hidevs_01',
         sessionId: 'sess_20260817_multi002',
-        origin: 'https://www.hidevs.xyz',
+        origin: 'https://www.example.com',
         firstSeenAt: '2026-08-17T09:00:00.000Z',
         lastSeenAt: '2026-08-17T09:08:00.000Z',
         pages: [
@@ -186,9 +186,9 @@ export function createMultiWebsiteSession(): RawFinalizedSessionPackage {
             pageId: 'page_hidevs_p1',
             sessionId: 'sess_20260817_multi002',
             websiteId: 'web_hidevs_01',
-            websiteOrigin: 'https://www.hidevs.xyz',
+            websiteOrigin: 'https://www.example.com',
             tabId: 201,
-            url: 'https://www.hidevs.xyz/',
+            url: 'https://www.example.com/',
             title: 'HiDevs',
             createdAt: '2026-08-17T09:00:00.000Z',
             routes: [
@@ -197,7 +197,7 @@ export function createMultiWebsiteSession(): RawFinalizedSessionPackage {
                 sessionId: 'sess_20260817_multi002',
                 pageId: 'page_hidevs_p1',
                 tabId: 201,
-                url: 'https://www.hidevs.xyz/',
+                url: 'https://www.example.com/',
                 path: '/',
                 hash: '',
                 timestamp: '2026-08-17T09:00:00.000Z',
@@ -217,7 +217,7 @@ export function createMultiWebsiteSession(): RawFinalizedSessionPackage {
                   level: 'log',
                   message: 'HiDevs console event',
                   arguments: ['HiDevs console event'],
-                  sourceUrl: 'https://www.hidevs.xyz/app.js',
+                  sourceUrl: 'https://www.example.com/app.js',
                   rawTimestamp: '2026-08-17T09:01:00.000Z'
                 }
               }

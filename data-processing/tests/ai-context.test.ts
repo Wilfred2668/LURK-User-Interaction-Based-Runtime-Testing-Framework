@@ -102,7 +102,7 @@ describe('Layer 3A — AI Context & Batch Preparation Test Suite', () => {
     expect(batch.batchId).toBe('batch_sess_20260817_test001_web_20260817_w01_page_001');
     expect(batch.sessionId).toBe('sess_20260817_test001');
     expect(batch.websiteId).toBe('web_20260817_w01');
-    expect(batch.websiteOrigin).toBe('https://www.hidevs.xyz');
+    expect(batch.websiteOrigin).toBe('https://www.example.com');
     expect(batch.pageId).toBe('page_001');
   });
 
@@ -126,8 +126,8 @@ describe('Layer 3A — AI Context & Batch Preparation Test Suite', () => {
     const hidevsBatches = prepareWebsiteBatches(insights, 'web_hidevs_01');
 
     expect(hidevsBatches).toHaveLength(1);
-    expect(hidevsBatches[0]?.websiteOrigin).toBe('https://www.hidevs.xyz');
-    expect(hidevsBatches[0]?.page.url).toBe('https://www.hidevs.xyz/');
+    expect(hidevsBatches[0]?.websiteOrigin).toBe('https://www.example.com');
+    expect(hidevsBatches[0]?.page.url).toBe('https://www.example.com/');
     expect(hidevsBatches.some((b) => b.websiteOrigin.includes('github.com'))).toBe(false);
   });
 
@@ -179,7 +179,7 @@ describe('Layer 3A — AI Context & Batch Preparation Test Suite', () => {
     for (const finding of batch.findings) {
       expect(finding.context.sessionId).toBe('sess_20260817_test001');
       expect(finding.context.websiteId).toBe('web_20260817_w01');
-      expect(finding.context.websiteOrigin).toBe('https://www.hidevs.xyz');
+      expect(finding.context.websiteOrigin).toBe('https://www.example.com');
       expect(finding.context.pageId).toBe('page_002');
     }
   });
@@ -311,10 +311,10 @@ describe('Layer 3A — AI Context & Batch Preparation Test Suite', () => {
     const batch = preparePageBatch(insights, 'web_20260817_w01', 'page_001');
 
     expect(batch.page.pageId).toBe('page_001');
-    expect(batch.page.url).toBe('https://www.hidevs.xyz/');
+    expect(batch.page.url).toBe('https://www.example.com/');
     expect(batch.page.title).toBe('HiDevs Home');
     expect(batch.page.tabId).toBe(101);
-    expect(batch.page.websiteOrigin).toBe('https://www.hidevs.xyz');
+    expect(batch.page.websiteOrigin).toBe('https://www.example.com');
   });
 
   // TEST 19 — Website metadata
@@ -325,7 +325,7 @@ describe('Layer 3A — AI Context & Batch Preparation Test Suite', () => {
     const batch = preparePageBatch(insights, 'web_20260817_w01', 'page_001');
 
     expect(batch.website.websiteId).toBe('web_20260817_w01');
-    expect(batch.website.origin).toBe('https://www.hidevs.xyz');
+    expect(batch.website.origin).toBe('https://www.example.com');
   });
 
   // TEST 20 — No cross-session contamination
@@ -437,7 +437,7 @@ describe('Layer 3A — AI Context & Batch Preparation Test Suite', () => {
     const batches = prepareWebsiteBatches(insights, 'web_hidevs_01');
 
     expect(batches).toHaveLength(1);
-    expect(batches[0]?.page.url).toBe('https://www.hidevs.xyz/');
+    expect(batches[0]?.page.url).toBe('https://www.example.com/');
     expect(batches[0]?.findings).toBeDefined();
   });
 
@@ -494,12 +494,12 @@ describe('Layer 3A — AI Context & Batch Preparation Test Suite', () => {
     const batch = preparePageBatch(insights, 'web_20260817_w01', 'page_002');
 
     // Verify complete structure
-    expect(batch.page.url).toBe('https://www.hidevs.xyz/ai-interns');
+    expect(batch.page.url).toBe('https://www.example.com/ai-interns');
     expect(batch.routes).toHaveLength(2); // /ai-interns and /ai-interns#faq
     expect(batch.findings.length).toBeGreaterThan(0);
     expect(batch.evidence.length).toBeGreaterThan(0);
     expect(batch.summary).toBeDefined();
-    expect(batch.websiteOrigin).toBe('https://www.hidevs.xyz');
+    expect(batch.websiteOrigin).toBe('https://www.example.com');
     expect(batch.websiteOrigin).not.toContain('github.com');
   });
 

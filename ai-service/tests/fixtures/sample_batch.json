@@ -1,0 +1,200 @@
+{
+  "schemaVersion": "3A.1",
+  "batchId": "batch_sess_20260817_test001_web_20260817_w01_page_002",
+  "sessionId": "sess_20260817_test001",
+  "websiteId": "web_20260817_w01",
+  "websiteOrigin": "https://www.example.com",
+  "pageId": "page_002",
+  "session": {
+    "sessionId": "sess_20260817_test001",
+    "status": "finalized",
+    "startedAt": "2026-08-17T08:00:00.000Z",
+    "endedAt": "2026-08-17T08:05:00.000Z",
+    "durationMs": 300000,
+    "rootUrl": "https://www.example.com/",
+    "activeTabId": 101
+  },
+  "website": {
+    "websiteId": "web_20260817_w01",
+    "origin": "https://www.example.com",
+    "firstSeenAt": "2026-08-17T08:00:00.000Z",
+    "lastSeenAt": "2026-08-17T08:04:30.000Z"
+  },
+  "page": {
+    "pageId": "page_002",
+    "websiteId": "web_20260817_w01",
+    "websiteOrigin": "https://www.example.com",
+    "sessionId": "sess_20260817_test001",
+    "tabId": 101,
+    "url": "https://www.example.com/ai-interns",
+    "title": "AI Interns",
+    "createdAt": "2026-08-17T08:02:00.000Z"
+  },
+  "routes": [
+    {
+      "routeId": "route_002",
+      "pageId": "page_002",
+      "websiteId": "web_20260817_w01",
+      "websiteOrigin": "https://www.example.com",
+      "sessionId": "sess_20260817_test001",
+      "tabId": 101,
+      "url": "https://www.example.com/ai-interns",
+      "path": "/ai-interns",
+      "hash": "",
+      "navigationType": "initial",
+      "timestamp": "2026-08-17T08:02:00.000Z"
+    },
+    {
+      "routeId": "route_003",
+      "pageId": "page_002",
+      "websiteId": "web_20260817_w01",
+      "websiteOrigin": "https://www.example.com",
+      "sessionId": "sess_20260817_test001",
+      "tabId": 101,
+      "url": "https://www.example.com/ai-interns#faq",
+      "path": "/ai-interns",
+      "hash": "#faq",
+      "navigationType": "hashchange",
+      "timestamp": "2026-08-17T08:03:00.000Z"
+    }
+  ],
+  "findings": [
+    {
+      "findingId": "fnd_repeated_network_request_agg_evt_net_01",
+      "findingType": "repeated_network_request",
+      "category": "network",
+      "severity": "medium",
+      "title": "Repeated network request detected",
+      "description": "The same GET request to https://www.example.com/api/leaderboard was observed 10 times within approximately 3s on this page.",
+      "confidence": 0.95,
+      "context": {
+        "sessionId": "sess_20260817_test001",
+        "websiteId": "web_20260817_w01",
+        "websiteOrigin": "https://www.example.com",
+        "pageId": "page_002",
+        "routeId": "route_002",
+        "tabId": 101
+      },
+      "evidence": {
+        "aggregationId": "agg_evt_net_01",
+        "eventIds": [
+          "evt_net_01", "evt_net_02", "evt_net_03", "evt_net_04", "evt_net_05",
+          "evt_net_06", "evt_net_07", "evt_net_08", "evt_net_09", "evt_net_10"
+        ],
+        "count": 10,
+        "firstSeenAt": "2026-08-17T08:02:05.000Z",
+        "lastSeenAt": "2026-08-17T08:02:08.000Z",
+        "timeSpanMs": 3000,
+        "url": "https://www.example.com/api/leaderboard",
+        "method": "GET",
+        "status": 200,
+        "durationMs": 40
+      }
+    },
+    {
+      "findingId": "fnd_failed_network_request_agg_evt_net_fail",
+      "findingType": "failed_network_request",
+      "category": "network",
+      "severity": "low",
+      "title": "HTTP 404 response observed",
+      "description": "Observed Client-side HTTP error (HTTP 404 Not Found) for GET https://www.example.com/api/missing-info.",
+      "confidence": 1.0,
+      "context": {
+        "sessionId": "sess_20260817_test001",
+        "websiteId": "web_20260817_w01",
+        "websiteOrigin": "https://www.example.com",
+        "pageId": "page_002",
+        "routeId": "route_002",
+        "tabId": 101
+      },
+      "evidence": {
+        "aggregationId": "agg_evt_net_fail",
+        "eventIds": ["evt_net_fail"],
+        "count": 1,
+        "firstSeenAt": "2026-08-17T08:02:10.000Z",
+        "lastSeenAt": "2026-08-17T08:02:10.000Z",
+        "timeSpanMs": 0,
+        "url": "https://www.example.com/api/missing-info",
+        "method": "GET",
+        "status": 404,
+        "statusText": "Not Found",
+        "durationMs": 35
+      }
+    },
+    {
+      "findingId": "fnd_long_task_agg_evt_p02",
+      "findingType": "long_task",
+      "category": "performance",
+      "severity": "medium",
+      "title": "Main thread long task observed",
+      "description": "A long task lasting 85ms was observed blocking the main execution thread.",
+      "confidence": 0.95,
+      "context": {
+        "sessionId": "sess_20260817_test001",
+        "websiteId": "web_20260817_w01",
+        "websiteOrigin": "https://www.example.com",
+        "pageId": "page_002",
+        "routeId": "route_003",
+        "tabId": 101
+      },
+      "evidence": {
+        "aggregationId": "agg_evt_p02",
+        "eventIds": ["evt_p02"],
+        "count": 1,
+        "firstSeenAt": "2026-08-17T08:03:10.000Z",
+        "lastSeenAt": "2026-08-17T08:03:10.000Z",
+        "timeSpanMs": 0,
+        "durationMs": 85,
+        "startTime": 1250,
+        "url": "https://www.example.com/ai-interns"
+      }
+    }
+  ],
+  "evidence": [
+    {
+      "findingId": "fnd_repeated_network_request_agg_evt_net_01",
+      "findingType": "repeated_network_request",
+      "category": "network",
+      "severity": "medium",
+      "title": "Repeated network request detected",
+      "description": "The same GET request to https://www.example.com/api/leaderboard was observed 10 times within approximately 3s on this page.",
+      "confidence": 0.95,
+      "evidence": {
+        "aggregationId": "agg_evt_net_01",
+        "eventIds": [
+          "evt_net_01", "evt_net_02", "evt_net_03", "evt_net_04", "evt_net_05",
+          "evt_net_06", "evt_net_07", "evt_net_08", "evt_net_09", "evt_net_10"
+        ],
+        "count": 10,
+        "firstSeenAt": "2026-08-17T08:02:05.000Z",
+        "lastSeenAt": "2026-08-17T08:02:08.000Z",
+        "timeSpanMs": 3000,
+        "url": "https://www.example.com/api/leaderboard",
+        "method": "GET",
+        "status": 200,
+        "durationMs": 40
+      },
+      "sampledEventIds": [
+        "evt_net_01", "evt_net_03", "evt_net_05", "evt_net_08", "evt_net_10"
+      ]
+    }
+  ],
+  "summary": {
+    "consoleErrors": 0,
+    "consoleWarnings": 0,
+    "networkFailures": 1,
+    "repeatedRequests": 1,
+    "slowRequests": 0,
+    "slowResources": 0,
+    "largeResources": 0,
+    "longTasks": 1,
+    "slowNavigations": 0
+  },
+  "metadata": {
+    "schemaVersion": "3A.1",
+    "generatedAt": "2026-08-17T08:05:30.000Z",
+    "eventCount": 12,
+    "findingCount": 3,
+    "patternCount": 3
+  }
+}

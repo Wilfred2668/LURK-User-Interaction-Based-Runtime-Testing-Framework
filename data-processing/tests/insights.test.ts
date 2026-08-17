@@ -16,7 +16,7 @@ function createMockContext(overrides: Partial<NormalizedEventContext> = {}): Nor
   return {
     sessionId: 'sess_test_1',
     websiteId: 'web_test_1',
-    websiteOrigin: 'https://www.hidevs.xyz',
+    websiteOrigin: 'https://www.example.com',
     pageId: 'page_test_1',
     routeId: 'route_test_1',
     tabId: 100,
@@ -28,7 +28,7 @@ function createMockNetworkEvent(
   id: string,
   timestamp: string,
   method = 'GET',
-  url = 'https://www.hidevs.xyz/api/leaderboard',
+  url = 'https://www.example.com/api/leaderboard',
   requestType: 'fetch' | 'xhr' = 'fetch',
   status: number | null = 200,
   durationMs = 40,
@@ -72,7 +72,7 @@ function createMockConsoleEvent(
       level,
       message,
       arguments: [message],
-      sourceUrl: 'https://www.hidevs.xyz/main.js',
+      sourceUrl: 'https://www.example.com/main.js',
       rawTimestamp: timestamp
     }
   };
@@ -81,7 +81,7 @@ function createMockConsoleEvent(
 function createMockResourceEvent(
   id: string,
   timestamp: string,
-  name = 'https://www.hidevs.xyz/assets/logo.png',
+  name = 'https://www.example.com/assets/logo.png',
   initiatorType = 'img',
   durationMs = 25,
   decodedBodySize = 5000,
@@ -127,7 +127,7 @@ function createMockLongTaskEvent(
       name: 'self',
       startTime,
       durationMs,
-      sourceUrl: 'https://www.hidevs.xyz/app.js',
+      sourceUrl: 'https://www.example.com/app.js',
       timestamp
     }
   };
@@ -198,7 +198,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
 
   // TEST 5 — HTTP 404
   it('TEST 5: should generate failed_network_request finding for HTTP 404 response', () => {
-    const events = [createMockNetworkEvent('evt_404', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.hidevs.xyz/api/missing', 'fetch', 404)];
+    const events = [createMockNetworkEvent('evt_404', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.example.com/api/missing', 'fetch', 404)];
 
     const patterns = aggregateEvents(events);
     const findings = patterns.flatMap((p) => detectInsightsFromPattern(p));
@@ -211,7 +211,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
 
   // TEST 6 — HTTP 500
   it('TEST 6: should generate failed_network_request finding with high severity for HTTP 500', () => {
-    const events = [createMockNetworkEvent('evt_500', '2026-08-17T08:00:00.000Z', 'POST', 'https://www.hidevs.xyz/api/submit', 'fetch', 500)];
+    const events = [createMockNetworkEvent('evt_500', '2026-08-17T08:00:00.000Z', 'POST', 'https://www.example.com/api/submit', 'fetch', 500)];
 
     const patterns = aggregateEvents(events);
     const findings = patterns.flatMap((p) => detectInsightsFromPattern(p));
@@ -224,7 +224,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
 
   // TEST 7 — HTTP 401
   it('TEST 7: should generate failed_network_request for HTTP 401 without claiming broken auth', () => {
-    const events = [createMockNetworkEvent('evt_401', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.hidevs.xyz/api/admin', 'fetch', 401)];
+    const events = [createMockNetworkEvent('evt_401', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.example.com/api/admin', 'fetch', 401)];
 
     const patterns = aggregateEvents(events);
     const findings = patterns.flatMap((p) => detectInsightsFromPattern(p));
@@ -238,7 +238,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
   // TEST 8 — Network transport failure
   it('TEST 8: should generate network_transport_failure for connection/transport failures', () => {
     const events = [
-      createMockNetworkEvent('evt_net_fail', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.hidevs.xyz/api/data', 'fetch', null, 0, 'network', 'Failed to fetch')
+      createMockNetworkEvent('evt_net_fail', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.example.com/api/data', 'fetch', null, 0, 'network', 'Failed to fetch')
     ];
 
     const patterns = aggregateEvents(events);
@@ -253,7 +253,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
   // TEST 9 — Slow network
   it('TEST 9: should generate slow_network_request when duration >= 1000ms', () => {
     const events = [
-      createMockNetworkEvent('evt_slow', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.hidevs.xyz/api/heavy', 'fetch', 200, 1500)
+      createMockNetworkEvent('evt_slow', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.example.com/api/heavy', 'fetch', 200, 1500)
     ];
 
     const patterns = aggregateEvents(events);
@@ -268,7 +268,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
   // TEST 10 — Very slow network
   it('TEST 10: should assign high severity when request duration >= 3000ms', () => {
     const events = [
-      createMockNetworkEvent('evt_vslow', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.hidevs.xyz/api/huge', 'fetch', 200, 3500)
+      createMockNetworkEvent('evt_vslow', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.example.com/api/huge', 'fetch', 200, 3500)
     ];
 
     const patterns = aggregateEvents(events);
@@ -282,7 +282,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
   // TEST 11 — Fast network
   it('TEST 11: should not generate slow_network_request for fast requests (100ms < 1000ms)', () => {
     const events = [
-      createMockNetworkEvent('evt_fast', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.hidevs.xyz/api/fast', 'fetch', 200, 100)
+      createMockNetworkEvent('evt_fast', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.example.com/api/fast', 'fetch', 200, 100)
     ];
 
     const patterns = aggregateEvents(events);
@@ -294,7 +294,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
   // TEST 12 — Slow resource
   it('TEST 12: should generate slow_resource for performance resources with duration >= 500ms', () => {
     const events = [
-      createMockResourceEvent('evt_res_slow', '2026-08-17T08:00:00.000Z', 'https://www.hidevs.xyz/bundle.js', 'script', 1000)
+      createMockResourceEvent('evt_res_slow', '2026-08-17T08:00:00.000Z', 'https://www.example.com/bundle.js', 'script', 1000)
     ];
 
     const patterns = aggregateEvents(events);
@@ -308,7 +308,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
   // TEST 13 — Large resource
   it('TEST 13: should generate large_resource for resources with size >= 1MB (e.g. 2MB)', () => {
     const events = [
-      createMockResourceEvent('evt_res_large', '2026-08-17T08:00:00.000Z', 'https://www.hidevs.xyz/video.mp4', 'media', 100, 2_000_000)
+      createMockResourceEvent('evt_res_large', '2026-08-17T08:00:00.000Z', 'https://www.example.com/video.mp4', 'media', 100, 2_000_000)
     ];
 
     const patterns = aggregateEvents(events);
@@ -322,7 +322,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
   // TEST 14 — Repeated resource
   it('TEST 14: should generate repeated_resource when resource is loaded >= 5 times in the window', () => {
     const events = Array.from({ length: 5 }, (_, i) =>
-      createMockResourceEvent(`evt_res_${i}`, `2026-08-17T08:00:0${i}.000Z`, 'https://www.hidevs.xyz/icon.svg', 'img')
+      createMockResourceEvent(`evt_res_${i}`, `2026-08-17T08:00:0${i}.000Z`, 'https://www.example.com/icon.svg', 'img')
     );
 
     const patterns = aggregateEvents(events, { windowMs: 5000 });
@@ -355,7 +355,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
       context: createMockContext(),
       data: {
         performanceType: 'resource',
-        name: 'https://www.hidevs.xyz/asset.png',
+        name: 'https://www.example.com/asset.png',
         initiatorType: 'img',
         durationMs: 0,
         startTime: 0,
@@ -395,10 +395,10 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
   // TEST 18 — Context preservation
   it('TEST 18: should preserve complete hierarchical context in the finding', () => {
     const events = Array.from({ length: 6 }, (_, i) =>
-      createMockNetworkEvent(`evt_c_${i}`, `2026-08-17T08:00:0${i}.000Z`, 'GET', 'https://www.hidevs.xyz/api', 'fetch', 200, 40, null, null, {
+      createMockNetworkEvent(`evt_c_${i}`, `2026-08-17T08:00:0${i}.000Z`, 'GET', 'https://www.example.com/api', 'fetch', 200, 40, null, null, {
         sessionId: 'sess_custom_1',
         websiteId: 'web_custom_1',
-        websiteOrigin: 'https://www.hidevs.xyz',
+        websiteOrigin: 'https://www.example.com',
         pageId: 'page_custom_1',
         routeId: 'route_custom_1',
         tabId: 999
@@ -411,7 +411,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
     const f = findings[0]!;
     expect(f.context.sessionId).toBe('sess_custom_1');
     expect(f.context.websiteId).toBe('web_custom_1');
-    expect(f.context.websiteOrigin).toBe('https://www.hidevs.xyz');
+    expect(f.context.websiteOrigin).toBe('https://www.example.com');
     expect(f.context.pageId).toBe('page_custom_1');
     expect(f.context.routeId).toBe('route_custom_1');
     expect(f.context.tabId).toBe(999);
@@ -425,20 +425,20 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
     const insights = extractInsights(aggregated);
 
     expect(insights.websites).toHaveLength(2);
-    const hidevs = insights.websites.find((w) => w.origin === 'https://www.hidevs.xyz')!;
+    const hidevs = insights.websites.find((w) => w.origin === 'https://www.example.com')!;
     const github = insights.websites.find((w) => w.origin === 'https://github.com')!;
 
-    expect(hidevs.pages[0]?.findings.every((f) => f.context.websiteOrigin === 'https://www.hidevs.xyz')).toBe(true);
+    expect(hidevs.pages[0]?.findings.every((f) => f.context.websiteOrigin === 'https://www.example.com')).toBe(true);
     expect(github.pages[0]?.findings.every((f) => f.context.websiteOrigin === 'https://github.com')).toBe(true);
   });
 
   // TEST 20 — Page isolation
   it('TEST 20: should isolate findings between different pages of the same website', () => {
     const page1Events = Array.from({ length: 6 }, (_, i) =>
-      createMockNetworkEvent(`evt_p1_${i}`, `2026-08-17T08:00:0${i}.000Z`, 'GET', 'https://www.hidevs.xyz/api/feed', 'fetch', 200, 40, null, null, { pageId: 'page_1' })
+      createMockNetworkEvent(`evt_p1_${i}`, `2026-08-17T08:00:0${i}.000Z`, 'GET', 'https://www.example.com/api/feed', 'fetch', 200, 40, null, null, { pageId: 'page_1' })
     );
     const page2Events = Array.from({ length: 6 }, (_, i) =>
-      createMockNetworkEvent(`evt_p2_${i}`, `2026-08-17T08:00:0${i}.000Z`, 'GET', 'https://www.hidevs.xyz/api/feed', 'fetch', 200, 40, null, null, { pageId: 'page_2' })
+      createMockNetworkEvent(`evt_p2_${i}`, `2026-08-17T08:00:0${i}.000Z`, 'GET', 'https://www.example.com/api/feed', 'fetch', 200, 40, null, null, { pageId: 'page_2' })
     );
 
     const patterns = aggregateEvents([...page1Events, ...page2Events]);
@@ -451,7 +451,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
   // TEST 21 — No duplicate finding
   it('TEST 21: should generate exactly one finding per matching rule for an aggregated pattern', () => {
     const events = Array.from({ length: 10 }, (_, i) =>
-      createMockNetworkEvent(`evt_d_${i}`, `2026-08-17T08:00:0${i % 4}.000Z`, 'GET', 'https://www.hidevs.xyz/api/items')
+      createMockNetworkEvent(`evt_d_${i}`, `2026-08-17T08:00:0${i % 4}.000Z`, 'GET', 'https://www.example.com/api/items')
     );
 
     const patterns = aggregateEvents(events);
@@ -464,7 +464,7 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
   // TEST 22 — Multiple findings from one pattern
   it('TEST 22: should allow multiple distinct findings from one pattern (e.g. repeated AND slow)', () => {
     const events = Array.from({ length: 10 }, (_, i) =>
-      createMockNetworkEvent(`evt_rs_${i}`, `2026-08-17T08:00:0${i % 4}.000Z`, 'GET', 'https://www.hidevs.xyz/api/heavy', 'fetch', 200, 1500)
+      createMockNetworkEvent(`evt_rs_${i}`, `2026-08-17T08:00:0${i % 4}.000Z`, 'GET', 'https://www.example.com/api/heavy', 'fetch', 200, 1500)
     );
 
     const patterns = aggregateEvents(events);
@@ -482,8 +482,8 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
   it('TEST 23: should avoid speculative root-cause language in descriptions', () => {
     const events = [
       ...Array.from({ length: 10 }, (_, i) => createMockNetworkEvent(`e1_${i}`, `2026-08-17T08:00:0${i % 4}.000Z`)),
-      createMockNetworkEvent('e2', '2026-08-17T08:00:01.000Z', 'GET', 'https://www.hidevs.xyz/api/404', 'fetch', 404),
-      createMockNetworkEvent('e3', '2026-08-17T08:00:02.000Z', 'GET', 'https://www.hidevs.xyz/api/500', 'fetch', 500),
+      createMockNetworkEvent('e2', '2026-08-17T08:00:01.000Z', 'GET', 'https://www.example.com/api/404', 'fetch', 404),
+      createMockNetworkEvent('e3', '2026-08-17T08:00:02.000Z', 'GET', 'https://www.example.com/api/500', 'fetch', 500),
       createMockLongTaskEvent('e4', '2026-08-17T08:00:03.000Z', 300)
     ];
 
@@ -564,20 +564,20 @@ describe('Layer 2C — Engineering Insight Extraction Test Suite', () => {
       // 5 repeated errors (threshold 3 -> 1 finding)
       ...Array.from({ length: 5 }, (_, i) => createMockConsoleEvent(`err_${i}`, `2026-08-17T08:00:0${i}.000Z`, 'error', 'API 500')),
       // 1 normal fast 200 request (no finding)
-      createMockNetworkEvent('norm_n1', '2026-08-17T08:00:01.000Z', 'GET', 'https://www.hidevs.xyz/api/ok', 'fetch', 200, 50),
+      createMockNetworkEvent('norm_n1', '2026-08-17T08:00:01.000Z', 'GET', 'https://www.example.com/api/ok', 'fetch', 200, 50),
       // 10 repeated GET requests (threshold 5 -> 1 finding)
-      ...Array.from({ length: 10 }, (_, i) => createMockNetworkEvent(`rep_get_${i}`, `2026-08-17T08:00:0${i % 4}.000Z`, 'GET', 'https://www.hidevs.xyz/api/feed')),
+      ...Array.from({ length: 10 }, (_, i) => createMockNetworkEvent(`rep_get_${i}`, `2026-08-17T08:00:0${i % 4}.000Z`, 'GET', 'https://www.example.com/api/feed')),
       // 1 × 404 (1 finding)
-      createMockNetworkEvent('n_404', '2026-08-17T08:00:02.000Z', 'GET', 'https://www.hidevs.xyz/api/missing', 'fetch', 404, 50),
+      createMockNetworkEvent('n_404', '2026-08-17T08:00:02.000Z', 'GET', 'https://www.example.com/api/missing', 'fetch', 404, 50),
       // 1 × 500 (1 finding)
-      createMockNetworkEvent('n_500', '2026-08-17T08:00:03.000Z', 'POST', 'https://www.hidevs.xyz/api/save', 'fetch', 500, 100),
+      createMockNetworkEvent('n_500', '2026-08-17T08:00:03.000Z', 'POST', 'https://www.example.com/api/save', 'fetch', 500, 100),
       // 1 slow request 1500ms (1 finding)
-      createMockNetworkEvent('n_slow', '2026-08-17T08:00:04.000Z', 'GET', 'https://www.hidevs.xyz/api/slow', 'fetch', 200, 1500),
+      createMockNetworkEvent('n_slow', '2026-08-17T08:00:04.000Z', 'GET', 'https://www.example.com/api/slow', 'fetch', 200, 1500),
       // 2 normal small resources (no finding)
-      createMockResourceEvent('res_1', '2026-08-17T08:00:01.000Z', 'https://www.hidevs.xyz/a.css', 'css', 30, 2000),
-      createMockResourceEvent('res_2', '2026-08-17T08:00:02.000Z', 'https://www.hidevs.xyz/b.js', 'script', 40, 5000),
+      createMockResourceEvent('res_1', '2026-08-17T08:00:01.000Z', 'https://www.example.com/a.css', 'css', 30, 2000),
+      createMockResourceEvent('res_2', '2026-08-17T08:00:02.000Z', 'https://www.example.com/b.js', 'script', 40, 5000),
       // 1 large resource (2MB -> 1 finding)
-      createMockResourceEvent('res_large', '2026-08-17T08:00:03.000Z', 'https://www.hidevs.xyz/img.png', 'img', 100, 2_000_000),
+      createMockResourceEvent('res_large', '2026-08-17T08:00:03.000Z', 'https://www.example.com/img.png', 'img', 100, 2_000_000),
       // 1 long task (150ms -> 1 finding)
       createMockLongTaskEvent('lt_1', '2026-08-17T08:00:04.000Z', 150)
     ];

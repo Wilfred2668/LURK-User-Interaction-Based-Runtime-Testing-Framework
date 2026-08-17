@@ -14,7 +14,7 @@ function createMockContext(overrides: Partial<NormalizedEventContext> = {}): Nor
   return {
     sessionId: 'sess_test_1',
     websiteId: 'web_test_1',
-    websiteOrigin: 'https://www.hidevs.xyz',
+    websiteOrigin: 'https://www.example.com',
     pageId: 'page_test_1',
     routeId: 'route_test_1',
     tabId: 100,
@@ -26,7 +26,7 @@ function createMockNetworkEvent(
   id: string,
   timestamp: string,
   method = 'GET',
-  url = 'https://www.hidevs.xyz/api/leaderboard',
+  url = 'https://www.example.com/api/leaderboard',
   requestType: 'fetch' | 'xhr' = 'fetch',
   contextOverrides: Partial<NormalizedEventContext> = {}
 ): NormalizedEvent {
@@ -64,7 +64,7 @@ function createMockConsoleEvent(
       level,
       message,
       arguments: [message],
-      sourceUrl: 'https://www.hidevs.xyz/main.js',
+      sourceUrl: 'https://www.example.com/main.js',
       rawTimestamp: timestamp
     }
   };
@@ -73,7 +73,7 @@ function createMockConsoleEvent(
 function createMockResourceEvent(
   id: string,
   timestamp: string,
-  name = 'https://www.hidevs.xyz/assets/logo.png',
+  name = 'https://www.example.com/assets/logo.png',
   initiatorType = 'img',
   contextOverrides: Partial<NormalizedEventContext> = {}
 ): NormalizedEvent {
@@ -153,8 +153,8 @@ describe('Layer 2 Aggregation & Repeated-Pattern Detection Suite', () => {
   // TEST 4 — Different URLs
   it('TEST 4: should not combine requests to different URLs', () => {
     const events = [
-      createMockNetworkEvent('evt_u1', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.hidevs.xyz/api/users'),
-      createMockNetworkEvent('evt_l1', '2026-08-17T08:00:01.000Z', 'GET', 'https://www.hidevs.xyz/api/leaderboard')
+      createMockNetworkEvent('evt_u1', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.example.com/api/users'),
+      createMockNetworkEvent('evt_l1', '2026-08-17T08:00:01.000Z', 'GET', 'https://www.example.com/api/leaderboard')
     ];
 
     const patterns = aggregateEvents(events, { windowMs: 5000 });
@@ -164,9 +164,9 @@ describe('Layer 2 Aggregation & Repeated-Pattern Detection Suite', () => {
   // TEST 5 — Different pages
   it('TEST 5: should strictly isolate identical requests occurring on different pages', () => {
     const events = [
-      createMockNetworkEvent('evt_pA_1', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.hidevs.xyz/api/data', 'fetch', { pageId: 'page_A' }),
-      createMockNetworkEvent('evt_pA_2', '2026-08-17T08:00:01.000Z', 'GET', 'https://www.hidevs.xyz/api/data', 'fetch', { pageId: 'page_A' }),
-      createMockNetworkEvent('evt_pB_1', '2026-08-17T08:00:02.000Z', 'GET', 'https://www.hidevs.xyz/api/data', 'fetch', { pageId: 'page_B' })
+      createMockNetworkEvent('evt_pA_1', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.example.com/api/data', 'fetch', { pageId: 'page_A' }),
+      createMockNetworkEvent('evt_pA_2', '2026-08-17T08:00:01.000Z', 'GET', 'https://www.example.com/api/data', 'fetch', { pageId: 'page_A' }),
+      createMockNetworkEvent('evt_pB_1', '2026-08-17T08:00:02.000Z', 'GET', 'https://www.example.com/api/data', 'fetch', { pageId: 'page_B' })
     ];
 
     const patterns = aggregateEvents(events, { windowMs: 5000 });
@@ -182,8 +182,8 @@ describe('Layer 2 Aggregation & Repeated-Pattern Detection Suite', () => {
   // TEST 6 — Different routes
   it('TEST 6: should isolate identical requests occurring on different routes of the same page', () => {
     const events = [
-      createMockNetworkEvent('evt_r1', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.hidevs.xyz/api/scores', 'fetch', { routeId: 'route_dashboard' }),
-      createMockNetworkEvent('evt_r2', '2026-08-17T08:00:01.000Z', 'GET', 'https://www.hidevs.xyz/api/scores', 'fetch', { routeId: 'route_scores_hash' })
+      createMockNetworkEvent('evt_r1', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.example.com/api/scores', 'fetch', { routeId: 'route_dashboard' }),
+      createMockNetworkEvent('evt_r2', '2026-08-17T08:00:01.000Z', 'GET', 'https://www.example.com/api/scores', 'fetch', { routeId: 'route_scores_hash' })
     ];
 
     const patterns = aggregateEvents(events, { windowMs: 5000 });
@@ -193,13 +193,13 @@ describe('Layer 2 Aggregation & Repeated-Pattern Detection Suite', () => {
   // TEST 7 — Different websites
   it('TEST 7: should strictly isolate requests across different websites', () => {
     const events = [
-      createMockNetworkEvent('evt_w1', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.hidevs.xyz/api/ping', 'fetch', { websiteId: 'web_hidevs', websiteOrigin: 'https://www.hidevs.xyz' }),
+      createMockNetworkEvent('evt_w1', '2026-08-17T08:00:00.000Z', 'GET', 'https://www.example.com/api/ping', 'fetch', { websiteId: 'web_hidevs', websiteOrigin: 'https://www.example.com' }),
       createMockNetworkEvent('evt_w2', '2026-08-17T08:00:01.000Z', 'GET', 'https://github.com/api/ping', 'fetch', { websiteId: 'web_github', websiteOrigin: 'https://github.com' })
     ];
 
     const patterns = aggregateEvents(events, { windowMs: 5000 });
     expect(patterns).toHaveLength(2);
-    expect(patterns[0]?.context.websiteOrigin).toBe('https://www.hidevs.xyz');
+    expect(patterns[0]?.context.websiteOrigin).toBe('https://www.example.com');
     expect(patterns[1]?.context.websiteOrigin).toBe('https://github.com');
   });
 
@@ -242,9 +242,9 @@ describe('Layer 2 Aggregation & Repeated-Pattern Detection Suite', () => {
   // TEST 11 — Performance resources
   it('TEST 11: should group identical repeated resource timing events within the window', () => {
     const events = [
-      createMockResourceEvent('evt_res_1', '2026-08-17T08:00:00.000Z', 'https://www.hidevs.xyz/icon.png', 'img'),
-      createMockResourceEvent('evt_res_2', '2026-08-17T08:00:01.000Z', 'https://www.hidevs.xyz/icon.png', 'img'),
-      createMockResourceEvent('evt_res_3', '2026-08-17T08:00:02.000Z', 'https://www.hidevs.xyz/icon.png', 'img')
+      createMockResourceEvent('evt_res_1', '2026-08-17T08:00:00.000Z', 'https://www.example.com/icon.png', 'img'),
+      createMockResourceEvent('evt_res_2', '2026-08-17T08:00:01.000Z', 'https://www.example.com/icon.png', 'img'),
+      createMockResourceEvent('evt_res_3', '2026-08-17T08:00:02.000Z', 'https://www.example.com/icon.png', 'img')
     ];
 
     const patterns = aggregateEvents(events, { windowMs: 5000 });
@@ -257,8 +257,8 @@ describe('Layer 2 Aggregation & Repeated-Pattern Detection Suite', () => {
   // TEST 12 — Unique performance events
   it('TEST 12: should not group distinct resource performance events', () => {
     const events = [
-      createMockResourceEvent('evt_res_1', '2026-08-17T08:00:00.000Z', 'https://www.hidevs.xyz/logo.png'),
-      createMockResourceEvent('evt_res_2', '2026-08-17T08:00:01.000Z', 'https://www.hidevs.xyz/banner.jpg')
+      createMockResourceEvent('evt_res_1', '2026-08-17T08:00:00.000Z', 'https://www.example.com/logo.png'),
+      createMockResourceEvent('evt_res_2', '2026-08-17T08:00:01.000Z', 'https://www.example.com/banner.jpg')
     ];
 
     const patterns = aggregateEvents(events, { windowMs: 5000 });
@@ -424,17 +424,17 @@ describe('Layer 2 Aggregation & Repeated-Pattern Detection Suite', () => {
   it('IMPORTANT SCENARIO: should properly group complex multi-category page events without mixing unrelated categories', () => {
     // 10 × GET /api/leaderboard
     const getLeaderboardEvents = Array.from({ length: 10 }, (_, i) =>
-      createMockNetworkEvent(`evt_lb_get_${i}`, `2026-08-17T08:00:0${i % 4}.000Z`, 'GET', 'https://www.hidevs.xyz/api/leaderboard')
+      createMockNetworkEvent(`evt_lb_get_${i}`, `2026-08-17T08:00:0${i % 4}.000Z`, 'GET', 'https://www.example.com/api/leaderboard')
     );
 
     // 10 × GET /api/users
     const getUsersEvents = Array.from({ length: 10 }, (_, i) =>
-      createMockNetworkEvent(`evt_usr_get_${i}`, `2026-08-17T08:00:0${i % 4}.000Z`, 'GET', 'https://www.hidevs.xyz/api/users')
+      createMockNetworkEvent(`evt_usr_get_${i}`, `2026-08-17T08:00:0${i % 4}.000Z`, 'GET', 'https://www.example.com/api/users')
     );
 
     // 5 × POST /api/leaderboard
     const postLeaderboardEvents = Array.from({ length: 5 }, (_, i) =>
-      createMockNetworkEvent(`evt_lb_post_${i}`, `2026-08-17T08:00:0${i % 4}.000Z`, 'POST', 'https://www.hidevs.xyz/api/leaderboard')
+      createMockNetworkEvent(`evt_lb_post_${i}`, `2026-08-17T08:00:0${i % 4}.000Z`, 'POST', 'https://www.example.com/api/leaderboard')
     );
 
     // 3 × console.error("Leaderboard failed")
@@ -444,10 +444,10 @@ describe('Layer 2 Aggregation & Repeated-Pattern Detection Suite', () => {
 
     // 4 × unique performance resources
     const perfEvents = [
-      createMockResourceEvent('evt_res_1', '2026-08-17T08:00:01.000Z', 'https://www.hidevs.xyz/app.js', 'script'),
-      createMockResourceEvent('evt_res_2', '2026-08-17T08:00:02.000Z', 'https://www.hidevs.xyz/style.css', 'css'),
-      createMockResourceEvent('evt_res_3', '2026-08-17T08:00:03.000Z', 'https://www.hidevs.xyz/logo.svg', 'img'),
-      createMockResourceEvent('evt_res_4', '2026-08-17T08:00:04.000Z', 'https://www.hidevs.xyz/font.woff2', 'font')
+      createMockResourceEvent('evt_res_1', '2026-08-17T08:00:01.000Z', 'https://www.example.com/app.js', 'script'),
+      createMockResourceEvent('evt_res_2', '2026-08-17T08:00:02.000Z', 'https://www.example.com/style.css', 'css'),
+      createMockResourceEvent('evt_res_3', '2026-08-17T08:00:03.000Z', 'https://www.example.com/logo.svg', 'img'),
+      createMockResourceEvent('evt_res_4', '2026-08-17T08:00:04.000Z', 'https://www.example.com/font.woff2', 'font')
     ];
 
     const allEvents: NormalizedEvent[] = [
@@ -471,9 +471,9 @@ describe('Layer 2 Aggregation & Repeated-Pattern Detection Suite', () => {
     // Total groups = 8
     expect(patterns).toHaveLength(8);
 
-    const getLbPattern = patterns.find((p) => (p.key as { method?: string; url?: string }).url === 'https://www.hidevs.xyz/api/leaderboard' && (p.key as { method?: string }).method === 'GET');
-    const getUserPattern = patterns.find((p) => (p.key as { method?: string; url?: string }).url === 'https://www.hidevs.xyz/api/users' && (p.key as { method?: string }).method === 'GET');
-    const postLbPattern = patterns.find((p) => (p.key as { method?: string; url?: string }).url === 'https://www.hidevs.xyz/api/leaderboard' && (p.key as { method?: string }).method === 'POST');
+    const getLbPattern = patterns.find((p) => (p.key as { method?: string; url?: string }).url === 'https://www.example.com/api/leaderboard' && (p.key as { method?: string }).method === 'GET');
+    const getUserPattern = patterns.find((p) => (p.key as { method?: string; url?: string }).url === 'https://www.example.com/api/users' && (p.key as { method?: string }).method === 'GET');
+    const postLbPattern = patterns.find((p) => (p.key as { method?: string; url?: string }).url === 'https://www.example.com/api/leaderboard' && (p.key as { method?: string }).method === 'POST');
     const consolePattern = patterns.find((p) => p.category === 'console');
     const perfPatterns = patterns.filter((p) => p.category === 'performance');
 

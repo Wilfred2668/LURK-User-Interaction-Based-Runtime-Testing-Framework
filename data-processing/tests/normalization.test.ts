@@ -42,7 +42,7 @@ describe('Layer 2 Normalization Test Suite', () => {
     const result = normalizeSession(raw);
 
     expect(result.websites).toHaveLength(2);
-    expect(result.websites[0]?.origin).toBe('https://www.hidevs.xyz');
+    expect(result.websites[0]?.origin).toBe('https://www.example.com');
     expect(result.websites[1]?.origin).toBe('https://github.com');
   });
 
@@ -84,7 +84,7 @@ describe('Layer 2 Normalization Test Suite', () => {
     expect(page2.routes[1]?.routeId).toBe('route_003');
     expect(page2.routes[1]?.hash).toBe('#faq');
     expect(page2.routes[1]?.navigationType).toBe('hashchange');
-    expect(page2.routes[1]?.websiteOrigin).toBe('https://www.hidevs.xyz');
+    expect(page2.routes[1]?.websiteOrigin).toBe('https://www.example.com');
   });
 
   // TEST 7 — Console normalization
@@ -97,7 +97,7 @@ describe('Layer 2 Normalization Test Suite', () => {
     expect(consoleEvent?.category).toBe('console');
     expect(consoleEvent?.data.level).toBe('info');
     expect(consoleEvent?.data.message).toBe('App loaded');
-    expect(consoleEvent?.context.websiteOrigin).toBe('https://www.hidevs.xyz');
+    expect(consoleEvent?.context.websiteOrigin).toBe('https://www.example.com');
     expect(consoleEvent?.context.pageId).toBe('page_001');
   });
 
@@ -113,7 +113,7 @@ describe('Layer 2 Normalization Test Suite', () => {
     expect(networkEvent?.data.method).toBe('GET');
     expect(networkEvent?.data.status).toBe(200);
     expect(networkEvent?.data.durationMs).toBe(45);
-    expect(networkEvent?.context.websiteOrigin).toBe('https://www.hidevs.xyz');
+    expect(networkEvent?.context.websiteOrigin).toBe('https://www.example.com');
   });
 
   // TEST 9 — Performance normalization
@@ -139,14 +139,14 @@ describe('Layer 2 Normalization Test Suite', () => {
     const raw = createMultiWebsiteSession();
     const result = normalizeSession(raw);
 
-    const hidevsWebsite = result.websites.find((w) => w.origin === 'https://www.hidevs.xyz')!;
+    const hidevsWebsite = result.websites.find((w) => w.origin === 'https://www.example.com')!;
     const githubWebsite = result.websites.find((w) => w.origin === 'https://github.com')!;
 
     const hidevsEvents = hidevsWebsite.pages.flatMap((p) => p.events);
     const githubEvents = githubWebsite.pages.flatMap((p) => p.events);
 
     expect(hidevsEvents).toHaveLength(1);
-    expect(hidevsEvents[0]?.context.websiteOrigin).toBe('https://www.hidevs.xyz');
+    expect(hidevsEvents[0]?.context.websiteOrigin).toBe('https://www.example.com');
 
     expect(githubEvents).toHaveLength(1);
     expect(githubEvents[0]?.context.websiteOrigin).toBe('https://github.com');
