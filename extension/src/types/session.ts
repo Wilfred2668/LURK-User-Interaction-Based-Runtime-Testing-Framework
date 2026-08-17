@@ -39,7 +39,8 @@ export type MessageType =
   | 'GET_CURRENT_PAGE'
   | 'ROUTE_EVENT'
   | 'CONSOLE_EVENT'
-  | 'NETWORK_EVENT';
+  | 'NETWORK_EVENT'
+  | 'PERFORMANCE_EVENT';
 
 export interface BaseMessage {
   type: MessageType;
@@ -100,6 +101,69 @@ export interface NetworkEventMessage extends BaseMessage {
   payload: NetworkRuntimeData;
 }
 
+export type PerformanceSubtype = 'navigation' | 'resource' | 'longtask';
+
+export interface NavigationPerformanceData {
+  performanceType: 'navigation';
+  navigationType: string;
+  startTime: number;
+  durationMs: number;
+  domContentLoadedMs: number;
+  loadEventMs: number;
+  dnsMs?: number;
+  connectMs?: number;
+  responseMs?: number;
+  sourceUrl?: string | null;
+  timestamp: string;
+}
+
+export interface ResourcePerformanceData {
+  performanceType: 'resource';
+  url: string;
+  initiatorType: string;
+  startTime: number;
+  durationMs: number;
+  transferSize?: number;
+  encodedBodySize?: number;
+  decodedBodySize?: number;
+  dnsMs?: number;
+  connectMs?: number;
+  responseMs?: number;
+  sourceUrl?: string | null;
+  timestamp: string;
+}
+
+export interface LongTaskAttribution {
+  name?: string;
+  entryType?: string;
+  startTime?: number;
+  duration?: number;
+  containerType?: string;
+  containerSrc?: string;
+  containerId?: string;
+  containerName?: string;
+}
+
+export interface LongTaskPerformanceData {
+  performanceType: 'longtask';
+  name: string;
+  startTime: number;
+  durationMs: number;
+  attribution?: LongTaskAttribution[];
+  sourceUrl?: string | null;
+  timestamp: string;
+}
+
+export type PerformanceRuntimeData =
+  | NavigationPerformanceData
+  | ResourcePerformanceData
+  | LongTaskPerformanceData;
+
+export interface PerformanceEventMessage extends BaseMessage {
+  type: 'PERFORMANCE_EVENT';
+  payload: PerformanceRuntimeData;
+}
+
 export type ExtensionMessage =
   | StartSessionMessage
   | StopSessionMessage
@@ -107,7 +171,8 @@ export type ExtensionMessage =
   | GetCurrentPageMessage
   | RouteEventMessage
   | ConsoleEventMessage
-  | NetworkEventMessage;
+  | NetworkEventMessage
+  | PerformanceEventMessage;
 
 export type RuntimeResponse =
   | { ok: true; type: 'SESSION_STARTED'; session: SessionState }

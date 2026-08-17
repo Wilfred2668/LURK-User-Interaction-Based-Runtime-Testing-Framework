@@ -5,6 +5,8 @@ import type {
   NetworkEventMessage,
   NetworkRuntimeData,
   PageRecord,
+  PerformanceEventMessage,
+  PerformanceRuntimeData,
   RouteRecord,
   RuntimeResponse,
   SessionState
@@ -414,6 +416,294 @@ function installMainWorldNetworkObserver(): void {
   };
 }
 
+function installMainWorldPerformanceObserver(): void {
+  const marker = '__runtimePerformanceObserverInstalled';
+
+  if ((window as typeof window & { [marker]?: boolean })[marker]) {
+    return;
+  }
+
+  (window as typeof window & { [marker]?: boolean })[marker] = true;
+
+  const SENSITIVE_PARAM_NAMES = new Set([
+    'token',
+    'access_token',
+    'refreshtoken',
+    'refresh_token',
+    'id_token',
+    'password',
+    'pwd',
+    'secret',
+    'api_key',
+    'apikey',
+    'auth',
+    'authorization',
+    'key',
+    'app_key',
+    'client_secret'
+  ]);
+
+  function sanitizeUrl(rawUrl: string): string {
+    if (!rawUrl) return '';
+    try {
+      const base = window.location ? window.location.href : undefined;
+      const parsed = new URL(rawUrl, base);
+      parsed.username = '';
+      parsed.password = '';
+
+      for (const param of Array.from(parsed.searchParams.keys())) {
+        if (SENSITIVE_PARAM_NAMES.has(param.toLowerCase())) {
+          parsed.searchParams.set(param, '[REDACTED]');
+        }
+      }
+
+      return parsed.toString();
+    } catch {
+      return rawUrl;
+    }
+  }
+
+  // 1. Navigation Timing
+  function reportNavigationTiming(): void {
+    const navReportedMarker = '__runtimeNavigationTimingReported';
+    if ((window as typeof window & { [navReportedMarker]?: boolean })[navReportedMarker]) {
+      return;
+    }
+
+    try {
+      if (typeof performance === 'undefined') {
+        return;
+      }
+
+      const navEntries = performance.getEntriesByType('navigation');
+      if (navEntries.length > 0) {
+        const entry = navEntries[0] as PerformanceNavigationTiming;
+
+        if (entry.loadEventEnd === 0 && document.readyState !== 'complete') {
+          window.addEventListener(
+            'load',
+            () => {
+              setTimeout(reportNavigationTiming, 0);
+            },
+            { once: true }
+          );
+          return;
+        }
+
+        (window as typeof window & { [navReportedMarker]?: boolean })[navReportedMarker] = true;
+
+        const durationMs = Math.round(entry.duration);
+        const domContentLoadedMs = Math.round(Math.max(0, entry.domContentLoadedEventEnd - entry.startTime));
+        const loadEventMs = Math.round(Math.max(0, entry.loadEventEnd - entry.startTime));
+        const dnsMs = Math.round(Math.max(0, entry.domainLookupEnd - entry.domainLookupStart));
+        const connectMs = Math.round(Math.max(0, entry.connectEnd - entry.connectStart));
+        const responseMs = Math.round(Math.max(0, entry.responseEnd - entry.responseStart));
+
+        const payload = {
+          __runtimePerformanceMessage: true,
+          performanceType: 'navigation',
+          navigationType: entry.type || 'navigate',
+          startTime: Math.round(entry.startTime),
+          durationMs,
+          domContentLoadedMs,
+          loadEventMs,
+          dnsMs,
+          connectMs,
+          responseMs,
+          sourceUrl: window.location ? window.location.href : null,
+          timestamp: new Date().toISOString()
+        };
+
+        window.postMessage(payload, '*');
+      } else if (performance.timing) {
+        const timing = performance.timing;
+        if (timing.loadEventEnd === 0 && document.readyState !== 'complete') {
+          window.addEventListener(
+            'load',
+            () => {
+              setTimeout(reportNavigationTiming, 0);
+            },
+            { once: true }
+          );
+          return;
+        }
+
+        (window as typeof window & { [navReportedMarker]?: boolean })[navReportedMarker] = true;
+
+        const navStart = timing.navigationStart || 0;
+        const durationMs = Math.max(0, (timing.loadEventEnd || timing.responseEnd || Date.now()) - navStart);
+        const domContentLoadedMs = Math.max(0, (timing.domContentLoadedEventEnd || timing.domInteractive) - navStart);
+        const loadEventMs = Math.max(0, timing.loadEventEnd - navStart);
+        const dnsMs = Math.max(0, timing.domainLookupEnd - timing.domainLookupStart);
+        const connectMs = Math.max(0, timing.connectEnd - timing.connectStart);
+        const responseMs = Math.max(0, timing.responseEnd - timing.responseStart);
+
+        const payload = {
+          __runtimePerformanceMessage: true,
+          performanceType: 'navigation',
+          navigationType: 'navigate',
+          startTime: 0,
+          durationMs,
+          domContentLoadedMs,
+          loadEventMs,
+          dnsMs,
+          connectMs,
+          responseMs,
+          sourceUrl: window.location ? window.location.href : null,
+          timestamp: new Date().toISOString()
+        };
+
+        window.postMessage(payload, '*');
+      }
+    } catch {
+      // no-op
+    }
+  }
+
+  if (document.readyState === 'complete') {
+    setTimeout(reportNavigationTiming, 0);
+  } else {
+    window.addEventListener(
+      'load',
+      () => {
+        setTimeout(reportNavigationTiming, 0);
+      },
+      { once: true }
+    );
+    setTimeout(reportNavigationTiming, 50);
+  }
+
+  // 2. Resource Timing
+  const seenResourceKeys = new Set<string>();
+
+  function reportResourceEntry(entry: PerformanceResourceTiming): void {
+    try {
+      const key = `${entry.name}#${Math.round(entry.startTime)}#${Math.round(entry.responseEnd)}#${entry.initiatorType}`;
+      if (seenResourceKeys.has(key)) {
+        return;
+      }
+      seenResourceKeys.add(key);
+
+      const sanitizedUrl = sanitizeUrl(entry.name);
+      const durationMs = Math.round(entry.duration);
+      const dnsMs = entry.domainLookupEnd > 0 && entry.domainLookupStart > 0
+        ? Math.round(Math.max(0, entry.domainLookupEnd - entry.domainLookupStart))
+        : undefined;
+      const connectMs = entry.connectEnd > 0 && entry.connectStart > 0
+        ? Math.round(Math.max(0, entry.connectEnd - entry.connectStart))
+        : undefined;
+      const responseMs = entry.responseEnd > 0 && entry.responseStart > 0
+        ? Math.round(Math.max(0, entry.responseEnd - entry.responseStart))
+        : undefined;
+
+      const payload = {
+        __runtimePerformanceMessage: true,
+        performanceType: 'resource',
+        url: sanitizedUrl || entry.name,
+        initiatorType: entry.initiatorType || 'other',
+        startTime: Math.round(entry.startTime),
+        durationMs,
+        transferSize: typeof entry.transferSize === 'number' ? entry.transferSize : undefined,
+        encodedBodySize: typeof entry.encodedBodySize === 'number' ? entry.encodedBodySize : undefined,
+        decodedBodySize: typeof entry.decodedBodySize === 'number' ? entry.decodedBodySize : undefined,
+        dnsMs,
+        connectMs,
+        responseMs,
+        sourceUrl: window.location ? window.location.href : null,
+        timestamp: new Date().toISOString()
+      };
+
+      window.postMessage(payload, '*');
+    } catch {
+      // no-op
+    }
+  }
+
+  try {
+    if (typeof PerformanceObserver !== 'undefined') {
+      const resourceObserver = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.entryType === 'resource') {
+            reportResourceEntry(entry as PerformanceResourceTiming);
+          }
+        }
+      });
+
+      resourceObserver.observe({ type: 'resource', buffered: true });
+    } else if (typeof performance !== 'undefined' && performance.getEntriesByType) {
+      const existing = performance.getEntriesByType('resource');
+      for (const entry of existing) {
+        reportResourceEntry(entry as PerformanceResourceTiming);
+      }
+    }
+  } catch {
+    try {
+      if (typeof performance !== 'undefined' && performance.getEntriesByType) {
+        const existing = performance.getEntriesByType('resource');
+        for (const entry of existing) {
+          reportResourceEntry(entry as PerformanceResourceTiming);
+        }
+      }
+    } catch {
+      // no-op
+    }
+  }
+
+  // 3. Long Tasks
+  try {
+    if (
+      typeof PerformanceObserver !== 'undefined' &&
+      PerformanceObserver.supportedEntryTypes &&
+      PerformanceObserver.supportedEntryTypes.includes('longtask')
+    ) {
+      const longTaskObserver = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          const attribution: Array<{
+            name?: string;
+            entryType?: string;
+            startTime?: number;
+            duration?: number;
+            containerType?: string;
+            containerSrc?: string;
+            containerId?: string;
+            containerName?: string;
+          }> = [];
+
+          if ('attribution' in entry && Array.isArray((entry as any).attribution)) {
+            for (const attr of (entry as any).attribution) {
+              attribution.push({
+                name: typeof attr.name === 'string' ? attr.name : undefined,
+                entryType: typeof attr.entryType === 'string' ? attr.entryType : undefined,
+                containerType: typeof attr.containerType === 'string' ? attr.containerType : undefined,
+                containerSrc: typeof attr.containerSrc === 'string' ? sanitizeUrl(attr.containerSrc) : undefined,
+                containerId: typeof attr.containerId === 'string' ? attr.containerId : undefined,
+                containerName: typeof attr.containerName === 'string' ? attr.containerName : undefined
+              });
+            }
+          }
+
+          const payload = {
+            __runtimePerformanceMessage: true,
+            performanceType: 'longtask',
+            name: entry.name || 'self',
+            startTime: Math.round(entry.startTime),
+            durationMs: Math.round(entry.duration),
+            attribution: attribution.length > 0 ? attribution : undefined,
+            sourceUrl: window.location ? window.location.href : null,
+            timestamp: new Date().toISOString()
+          };
+
+          window.postMessage(payload, '*');
+        }
+      });
+
+      longTaskObserver.observe({ entryTypes: ['longtask'] });
+    }
+  } catch {
+    // no-op
+  }
+}
+
 async function ensureConsoleObserverForTab(tabId: number): Promise<void> {
   const session = await readSessionState();
   if (!session || session.status !== 'active') {
@@ -458,9 +748,32 @@ async function ensureNetworkObserverForTab(tabId: number): Promise<void> {
   }
 }
 
+async function ensurePerformanceObserverForTab(tabId: number): Promise<void> {
+  const session = await readSessionState();
+  if (!session || session.status !== 'active') {
+    return;
+  }
+
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab || !tab.url || !isSupportedUrl(tab.url)) {
+    return;
+  }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: installMainWorldPerformanceObserver
+    });
+  } catch (error) {
+    console.error('[PERFORMANCE] Failed to install main-world performance observer for tab:', tabId, error);
+  }
+}
+
 async function ensureObserversForTab(tabId: number): Promise<void> {
   await ensureConsoleObserverForTab(tabId);
   await ensureNetworkObserverForTab(tabId);
+  await ensurePerformanceObserverForTab(tabId);
 }
 
 async function restoreObserversForActiveSession(): Promise<void> {
@@ -803,6 +1116,13 @@ if (!runtimeMessageListenerRegistered) {
             sendResponse({ ok: true, type: 'ROUTE_CAPTURED', route: null });
             return;
           }
+          case 'PERFORMANCE_EVENT': {
+            const payload = typedMessage as PerformanceEventMessage;
+            const tabId = sender.tab?.id ?? null;
+            await handlePerformanceEvent(payload.payload, tabId);
+            sendResponse({ ok: true, type: 'ROUTE_CAPTURED', route: null });
+            return;
+          }
           default: {
             sendResponse({ ok: false, type: 'ERROR', message: `Unsupported message type: ${String((typedMessage as { type?: unknown }).type)}` });
           }
@@ -993,6 +1313,41 @@ async function handleNetworkEvent(
   }
 
   console.log('[NETWORK] Event stored', saved.event.eventId, payload.method, payload.url);
+}
+
+async function handlePerformanceEvent(
+  payload: PerformanceRuntimeData,
+  senderTabId?: number | null
+): Promise<void> {
+  const session = await readSessionState();
+  if (!session || session.status !== 'active') {
+    console.log('[PERFORMANCE] Monitoring inactive; event ignored');
+    return;
+  }
+
+  const targetTabId = senderTabId ?? session.activeTabId;
+  const activeTab = targetTabId !== null ? await chrome.tabs.get(targetTabId).catch(() => null) : null;
+  const page = activeTab ? getLatestPageForTab(session, activeTab.id ?? 0) : getCurrentTrackedPage(session);
+  const route = page ? session.routes.filter((item) => item.pageId === page.pageId).at(-1) ?? null : null;
+
+  const runtimeEvent = {
+    eventId: generateEventId(),
+    sessionId: session.sessionId,
+    pageId: page?.pageId ?? null,
+    routeId: route?.routeId ?? null,
+    tabId: activeTab?.id ?? targetTabId ?? null,
+    timestamp: payload.timestamp || createRuntimeEventTimestamp(),
+    type: 'performance' as const,
+    data: payload
+  };
+
+  const saved = await runtimeEventPipeline.record(runtimeEvent);
+  if (!saved.ok) {
+    console.error('[PERFORMANCE] Failed to store runtime event:', saved.error);
+    return;
+  }
+
+  console.log('[PERFORMANCE] Event stored', saved.event.eventId, payload.performanceType);
 }
 
 console.log('[SESSION] Service worker initialized');
