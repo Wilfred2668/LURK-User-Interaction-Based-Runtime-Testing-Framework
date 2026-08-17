@@ -5,3 +5,6 @@ export * from './normalization/normalize-event.js';
 export * from './normalization/normalize-session.js';
 export * from './aggregation/aggregate-events.js';
 export * from './aggregation/aggregate-session.js';
+export * from './insights/insight-config.js';
+export * from './insights/detect-insights.js';
+export * from './insights/extract-insights.js';

@@ -16,7 +16,7 @@ import {
   normalizeSession,
   validateSessionPackage,
   aggregateSession,
-  aggregateEvents
+  extractInsights
 } from './src/index.js';
 
 // 1. Validate a finalized raw session package
@@ -30,13 +30,16 @@ const normalized = normalizeSession(rawSessionPackage);
 
 // 3. Aggregate repeated patterns within a configurable time window
 const aggregated = aggregateSession(normalized, { windowMs: 5000 });
-console.log(aggregated.session, aggregated.websites, aggregated.patterns);
+
+// 4. Extract deterministic, evidence-backed engineering findings
+const insights = extractInsights(aggregated);
+console.log(insights.session, insights.websites, insights.findings);
 ```
 
 ## Running Tests & Build
 
 ```bash
-# Run test suite (46 unit & integration tests)
+# Run test suite (74 unit & integration tests)
 npm test
 
 # Build TypeScript
