@@ -16,7 +16,9 @@ import {
   normalizeSession,
   validateSessionPackage,
   aggregateSession,
-  extractInsights
+  extractInsights,
+  prepareWebsiteBatches,
+  preparePageBatch
 } from './src/index.js';
 
 // 1. Validate a finalized raw session package
@@ -33,13 +35,16 @@ const aggregated = aggregateSession(normalized, { windowMs: 5000 });
 
 // 4. Extract deterministic, evidence-backed engineering findings
 const insights = extractInsights(aggregated);
-console.log(insights.session, insights.websites, insights.findings);
+
+// 5. Prepare page-wise AI analysis batches for a selected website
+const pageBatches = prepareWebsiteBatches(insights, 'web_hidevs_01');
+console.log(`Prepared ${pageBatches.length} page batches for AI analysis:`, pageBatches);
 ```
 
 ## Running Tests & Build
 
 ```bash
-# Run test suite (74 unit & integration tests)
+# Run test suite (106 unit & integration tests across Layer 2 & 3A)
 npm test
 
 # Build TypeScript

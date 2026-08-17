@@ -8,3 +8,8 @@ export * from './aggregation/aggregate-session.js';
 export * from './insights/insight-config.js';
 export * from './insights/detect-insights.js';
 export * from './insights/extract-insights.js';
+export * from './ai-context/ai-context-config.js';
+export * from './ai-context/evidence-sampler.js';
+export * from './ai-context/batch-size.js';
+export * from './ai-context/prepare-page-batch.js';
+export * from './ai-context/prepare-website-batches.js';
