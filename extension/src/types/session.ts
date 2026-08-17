@@ -38,7 +38,8 @@ export type MessageType =
   | 'GET_SESSION_STATE'
   | 'GET_CURRENT_PAGE'
   | 'ROUTE_EVENT'
-  | 'CONSOLE_EVENT';
+  | 'CONSOLE_EVENT'
+  | 'NETWORK_EVENT';
 
 export interface BaseMessage {
   type: MessageType;
@@ -80,13 +81,33 @@ export interface ConsoleEventMessage extends BaseMessage {
   };
 }
 
+export interface NetworkRuntimeData {
+  requestType: 'fetch' | 'xhr';
+  method: string;
+  url: string;
+  status: number | null;
+  statusText?: string;
+  ok: boolean;
+  durationMs: number;
+  failureType?: 'http' | 'network' | null;
+  errorMessage?: string | null;
+  sourceUrl?: string | null;
+  timestamp: string;
+}
+
+export interface NetworkEventMessage extends BaseMessage {
+  type: 'NETWORK_EVENT';
+  payload: NetworkRuntimeData;
+}
+
 export type ExtensionMessage =
   | StartSessionMessage
   | StopSessionMessage
   | GetSessionStateMessage
   | GetCurrentPageMessage
   | RouteEventMessage
-  | ConsoleEventMessage;
+  | ConsoleEventMessage
+  | NetworkEventMessage;
 
 export type RuntimeResponse =
   | { ok: true; type: 'SESSION_STARTED'; session: SessionState }

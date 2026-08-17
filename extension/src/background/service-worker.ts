@@ -1,5 +1,14 @@
 import { clearSessionState, readSessionState, writeSessionState } from '../storage/session-store';
-import type { ExtensionMessage, PageRecord, RouteRecord, RuntimeResponse, SessionState } from '../types/session';
+import type {
+  ConsoleEventMessage,
+  ExtensionMessage,
+  NetworkEventMessage,
+  NetworkRuntimeData,
+  PageRecord,
+  RouteRecord,
+  RuntimeResponse,
+  SessionState
+} from '../types/session';
 import { RuntimeEventPipeline, createRuntimeEventTimestamp, generateEventId } from '../runtime/runtime-event-pipeline';
 import { runtimeEventRepository } from '../runtime/runtime-event-repository';
 import { generatePageId, generateRouteId, generateSessionId, isSupportedUrl, normalizeDocumentUrl, safeTitle } from '../utils/page';
@@ -171,6 +180,240 @@ function installMainWorldConsoleObserver(): void {
   }
 }
 
+function installMainWorldNetworkObserver(): void {
+  const marker = '__runtimeNetworkObserverInstalled';
+
+  if ((window as typeof window & { [marker]?: boolean })[marker]) {
+    return;
+  }
+
+  (window as typeof window & { [marker]?: boolean })[marker] = true;
+
+  const SENSITIVE_PARAM_NAMES = new Set([
+    'token',
+    'access_token',
+    'refreshtoken',
+    'refresh_token',
+    'id_token',
+    'password',
+    'pwd',
+    'secret',
+    'api_key',
+    'apikey',
+    'auth',
+    'authorization',
+    'key',
+    'app_key',
+    'client_secret'
+  ]);
+
+  function sanitizeUrl(rawUrl: string): string {
+    try {
+      const base = window.location ? window.location.href : undefined;
+      const parsed = new URL(rawUrl, base);
+      parsed.username = '';
+      parsed.password = '';
+
+      for (const param of Array.from(parsed.searchParams.keys())) {
+        if (SENSITIVE_PARAM_NAMES.has(param.toLowerCase())) {
+          parsed.searchParams.set(param, '[REDACTED]');
+        }
+      }
+
+      return parsed.toString();
+    } catch {
+      return rawUrl;
+    }
+  }
+
+  // Intercept window.fetch
+  const originalFetch = window.fetch;
+  if (typeof originalFetch === 'function') {
+    window.fetch = async function (...args: Parameters<typeof fetch>) {
+      const startTime = performance.now();
+      const timestamp = new Date().toISOString();
+      const input = args[0];
+      const init = args[1];
+
+      let rawUrl = '';
+      let method = 'GET';
+
+      try {
+        if (typeof input === 'string') {
+          rawUrl = input;
+        } else if (input instanceof URL) {
+          rawUrl = input.toString();
+        } else if (input && typeof input === 'object' && 'url' in input) {
+          rawUrl = (input as Request).url;
+          if ((input as Request).method) {
+            method = (input as Request).method.toUpperCase();
+          }
+        }
+
+        if (init && init.method) {
+          method = init.method.toUpperCase();
+        }
+      } catch {
+        // Fallback
+      }
+
+      const sanitizedUrl = sanitizeUrl(rawUrl);
+
+      try {
+        const response = await originalFetch.apply(this, args);
+        const durationMs = Math.round(performance.now() - startTime);
+
+        try {
+          const payload = {
+            __runtimeNetworkMessage: true,
+            requestType: 'fetch',
+            method: method || 'GET',
+            url: sanitizedUrl || rawUrl,
+            status: response.status,
+            statusText: response.statusText,
+            ok: response.ok,
+            durationMs,
+            failureType: response.ok ? null : 'http',
+            errorMessage: null,
+            sourceUrl: window.location ? window.location.href : null,
+            timestamp
+          };
+          window.postMessage(payload, '*');
+        } catch {
+          // no-op
+        }
+
+        return response;
+      } catch (error) {
+        const durationMs = Math.round(performance.now() - startTime);
+        const errorMessage = error instanceof Error ? error.message : 'Fetch failed';
+
+        try {
+          const payload = {
+            __runtimeNetworkMessage: true,
+            requestType: 'fetch',
+            method: method || 'GET',
+            url: sanitizedUrl || rawUrl,
+            status: null,
+            statusText: '',
+            ok: false,
+            durationMs,
+            failureType: 'network',
+            errorMessage,
+            sourceUrl: window.location ? window.location.href : null,
+            timestamp
+          };
+          window.postMessage(payload, '*');
+        } catch {
+          // no-op
+        }
+
+        throw error;
+      }
+    };
+  }
+
+  // Intercept XMLHttpRequest
+  const originalOpen = XMLHttpRequest.prototype.open;
+  const originalSend = XMLHttpRequest.prototype.send;
+
+  XMLHttpRequest.prototype.open = function (
+    this: XMLHttpRequest & {
+      __runtimeNetworkMeta?: {
+        method: string;
+        url: string;
+        startTime: number;
+        timestamp: string;
+        reported: boolean;
+      };
+    },
+    ...args: unknown[]
+  ) {
+    try {
+      const method = typeof args[0] === 'string' ? args[0].toUpperCase() : 'GET';
+      const rawUrl = typeof args[1] === 'string' ? args[1] : (args[1] ? String(args[1]) : '');
+      this.__runtimeNetworkMeta = {
+        method,
+        url: sanitizeUrl(rawUrl),
+        startTime: 0,
+        timestamp: '',
+        reported: false
+      };
+    } catch {
+      // fallback
+    }
+
+    return originalOpen.apply(this, args as Parameters<typeof originalOpen>);
+  };
+
+  XMLHttpRequest.prototype.send = function (
+    this: XMLHttpRequest & {
+      __runtimeNetworkMeta?: {
+        method: string;
+        url: string;
+        startTime: number;
+        timestamp: string;
+        reported: boolean;
+      };
+    },
+    ...args: unknown[]
+  ) {
+    if (this.__runtimeNetworkMeta) {
+      this.__runtimeNetworkMeta.startTime = performance.now();
+      this.__runtimeNetworkMeta.timestamp = new Date().toISOString();
+
+      const report = (failureType: 'http' | 'network' | null, errorMessage?: string) => {
+        if (!this.__runtimeNetworkMeta || this.__runtimeNetworkMeta.reported) {
+          return;
+        }
+        this.__runtimeNetworkMeta.reported = true;
+
+        const durationMs = Math.round(performance.now() - this.__runtimeNetworkMeta.startTime);
+        const status = this.status || null;
+        const ok = status !== null && status >= 200 && status < 300;
+
+        try {
+          const payload = {
+            __runtimeNetworkMessage: true,
+            requestType: 'xhr',
+            method: this.__runtimeNetworkMeta.method,
+            url: this.__runtimeNetworkMeta.url,
+            status,
+            statusText: this.statusText || '',
+            ok,
+            durationMs,
+            failureType: failureType ?? (ok ? null : (status ? 'http' : 'network')),
+            errorMessage: errorMessage || null,
+            sourceUrl: window.location ? window.location.href : null,
+            timestamp: this.__runtimeNetworkMeta.timestamp
+          };
+          window.postMessage(payload, '*');
+        } catch {
+          // no-op
+        }
+      };
+
+      this.addEventListener('load', () => {
+        report(null);
+      });
+
+      this.addEventListener('error', () => {
+        report('network', 'XHR network error');
+      });
+
+      this.addEventListener('abort', () => {
+        report('network', 'XHR aborted');
+      });
+
+      this.addEventListener('timeout', () => {
+        report('network', 'XHR timeout');
+      });
+    }
+
+    return originalSend.apply(this, args as Parameters<typeof originalSend>);
+  };
+}
+
 async function ensureConsoleObserverForTab(tabId: number): Promise<void> {
   const session = await readSessionState();
   if (!session || session.status !== 'active') {
@@ -193,7 +436,34 @@ async function ensureConsoleObserverForTab(tabId: number): Promise<void> {
   }
 }
 
-async function restoreConsoleObserversForActiveSession(): Promise<void> {
+async function ensureNetworkObserverForTab(tabId: number): Promise<void> {
+  const session = await readSessionState();
+  if (!session || session.status !== 'active') {
+    return;
+  }
+
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (!tab || !tab.url || !isSupportedUrl(tab.url)) {
+    return;
+  }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: installMainWorldNetworkObserver
+    });
+  } catch (error) {
+    console.error('[NETWORK] Failed to install main-world network observer for tab:', tabId, error);
+  }
+}
+
+async function ensureObserversForTab(tabId: number): Promise<void> {
+  await ensureConsoleObserverForTab(tabId);
+  await ensureNetworkObserverForTab(tabId);
+}
+
+async function restoreObserversForActiveSession(): Promise<void> {
   const session = await readSessionState();
   if (!session || session.status !== 'active') {
     return;
@@ -202,7 +472,7 @@ async function restoreConsoleObserversForActiveSession(): Promise<void> {
   const tabs = await chrome.tabs.query({}).catch(() => [] as chrome.tabs.Tab[]);
   for (const tab of tabs) {
     if (tab.id !== undefined && tab.url && isSupportedUrl(tab.url)) {
-      await ensureConsoleObserverForTab(tab.id);
+      await ensureObserversForTab(tab.id);
     }
   }
 }
@@ -338,7 +608,7 @@ async function startSession(): Promise<RuntimeResponse> {
   };
 
   await writeSessionState(session);
-  await ensureConsoleObserverForTab(activeTab.id ?? 0);
+  await ensureObserversForTab(activeTab.id ?? 0);
 
   console.log(`${SESSION_LOG_PREFIX} Started ${sessionId}`);
 
@@ -520,17 +790,16 @@ if (!runtimeMessageListenerRegistered) {
             return;
           }
           case 'CONSOLE_EVENT': {
-            const payload = typedMessage as {
-              type: 'CONSOLE_EVENT';
-              payload: {
-                level: 'log' | 'info' | 'warn' | 'error' | 'debug';
-                message: string;
-                arguments: unknown[];
-                sourceUrl: string | null;
-                timestamp: string;
-              };
-            };
-            await handleConsoleEvent(payload.payload);
+            const payload = typedMessage as ConsoleEventMessage;
+            const tabId = sender.tab?.id ?? null;
+            await handleConsoleEvent(payload.payload, tabId);
+            sendResponse({ ok: true, type: 'ROUTE_CAPTURED', route: null });
+            return;
+          }
+          case 'NETWORK_EVENT': {
+            const payload = typedMessage as NetworkEventMessage;
+            const tabId = sender.tab?.id ?? null;
+            await handleNetworkEvent(payload.payload, tabId);
             sendResponse({ ok: true, type: 'ROUTE_CAPTURED', route: null });
             return;
           }
@@ -562,7 +831,7 @@ chrome.tabs.onCreated.addListener(async (tab) => {
     }
 
     await createPageForNavigation(tab.id, tab.url);
-    await ensureConsoleObserverForTab(tab.id);
+    await ensureObserversForTab(tab.id);
   } catch (error) {
     console.error('[TAB] Creation handler failed:', error);
   }
@@ -583,7 +852,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     }
 
     await createPageForNavigation(tabId, tab.url);
-    await ensureConsoleObserverForTab(tabId);
+    await ensureObserversForTab(tabId);
   } catch (error) {
     console.error('[PAGE] Navigation handler failed:', error);
   }
@@ -603,7 +872,7 @@ chrome.tabs.onActivated.addListener(async ({ tabId }) => {
     }
 
     await updateActiveTab(tabId);
-    await ensureConsoleObserverForTab(tabId);
+    await ensureObserversForTab(tabId);
     console.log(`${TAB_LOG_PREFIX} Active tab switched to ${tabId}; current tracked page: ${getLatestPageForTab(session, tabId)?.pageId ?? 'none'}`);
   } catch (error) {
     console.error('[TAB] Activation handler failed:', error);
@@ -633,19 +902,23 @@ const runtimeEventPipeline = new RuntimeEventPipeline(runtimeEventRepository);
 
 void runtimeEventRepository.initialize().then(() => {
   console.log('[EVENT_DB] Runtime event database initialized on service worker startup');
-  void restoreConsoleObserversForActiveSession();
+  void restoreObserversForActiveSession();
 }).catch((error) => {
   console.error('[EVENT_DB] Runtime event database initialization failed:', error);
 });
 
-async function handleConsoleEvent(payload: { level: 'log' | 'info' | 'warn' | 'error' | 'debug'; message: string; arguments: unknown[]; sourceUrl: string | null; timestamp: string }): Promise<void> {
+async function handleConsoleEvent(
+  payload: { level: 'log' | 'info' | 'warn' | 'error' | 'debug'; message: string; arguments: unknown[]; sourceUrl: string | null; timestamp: string },
+  senderTabId?: number | null
+): Promise<void> {
   const session = await readSessionState();
   if (!session || session.status !== 'active') {
     console.log('[CONSOLE] Monitoring inactive; event ignored');
     return;
   }
 
-  const activeTab = session.activeTabId !== null ? await chrome.tabs.get(session.activeTabId).catch(() => null) : null;
+  const targetTabId = senderTabId ?? session.activeTabId;
+  const activeTab = targetTabId !== null ? await chrome.tabs.get(targetTabId).catch(() => null) : null;
   const page = activeTab ? getLatestPageForTab(session, activeTab.id ?? 0) : getCurrentTrackedPage(session);
   const route = page ? session.routes.filter((item) => item.pageId === page.pageId).at(-1) ?? null : null;
 
@@ -654,7 +927,7 @@ async function handleConsoleEvent(payload: { level: 'log' | 'info' | 'warn' | 'e
     sessionId: session.sessionId,
     pageId: page?.pageId ?? null,
     routeId: route?.routeId ?? null,
-    tabId: activeTab?.id ?? session.activeTabId ?? null,
+    tabId: activeTab?.id ?? targetTabId ?? null,
     timestamp: payload.timestamp || createRuntimeEventTimestamp(),
     type: 'console' as const,
     data: {
@@ -673,6 +946,53 @@ async function handleConsoleEvent(payload: { level: 'log' | 'info' | 'warn' | 'e
   }
 
   console.log('[CONSOLE] Event stored', saved.event.eventId);
+}
+
+async function handleNetworkEvent(
+  payload: NetworkRuntimeData,
+  senderTabId?: number | null
+): Promise<void> {
+  const session = await readSessionState();
+  if (!session || session.status !== 'active') {
+    console.log('[NETWORK] Monitoring inactive; event ignored');
+    return;
+  }
+
+  const targetTabId = senderTabId ?? session.activeTabId;
+  const activeTab = targetTabId !== null ? await chrome.tabs.get(targetTabId).catch(() => null) : null;
+  const page = activeTab ? getLatestPageForTab(session, activeTab.id ?? 0) : getCurrentTrackedPage(session);
+  const route = page ? session.routes.filter((item) => item.pageId === page.pageId).at(-1) ?? null : null;
+
+  const runtimeEvent = {
+    eventId: generateEventId(),
+    sessionId: session.sessionId,
+    pageId: page?.pageId ?? null,
+    routeId: route?.routeId ?? null,
+    tabId: activeTab?.id ?? targetTabId ?? null,
+    timestamp: payload.timestamp || createRuntimeEventTimestamp(),
+    type: 'network' as const,
+    data: {
+      requestType: payload.requestType,
+      method: payload.method,
+      url: payload.url,
+      status: payload.status,
+      statusText: payload.statusText,
+      ok: payload.ok,
+      durationMs: payload.durationMs,
+      failureType: payload.failureType ?? null,
+      errorMessage: payload.errorMessage ?? null,
+      sourceUrl: payload.sourceUrl ?? null,
+      timestamp: payload.timestamp
+    }
+  };
+
+  const saved = await runtimeEventPipeline.record(runtimeEvent);
+  if (!saved.ok) {
+    console.error('[NETWORK] Failed to store runtime event:', saved.error);
+    return;
+  }
+
+  console.log('[NETWORK] Event stored', saved.event.eventId, payload.method, payload.url);
 }
 
 console.log('[SESSION] Service worker initialized');
@@ -722,10 +1042,19 @@ console.log('[SESSION] Service worker initialized');
     routeId: route?.routeId ?? null,
     tabId: currentPage.tabId,
     timestamp: createRuntimeEventTimestamp(),
-    type: 'console' as const,
+    type: 'network' as const,
     data: {
-      test: true,
-      message: 'Milestone 1D test event'
+      requestType: 'fetch' as const,
+      method: 'GET',
+      url: 'https://jsonplaceholder.typicode.com/todos/1',
+      status: 200,
+      statusText: 'OK',
+      ok: true,
+      durationMs: 45,
+      failureType: null,
+      errorMessage: null,
+      sourceUrl: currentPage.url,
+      timestamp: createRuntimeEventTimestamp()
     }
   };
 
@@ -736,7 +1065,7 @@ console.log('[SESSION] Service worker initialized');
 
   const all = await runtimeEventRepository.getBySessionId(session.sessionId);
   const byPage = await runtimeEventRepository.getByPageId(currentPage.pageId);
-  const byType = await runtimeEventRepository.getByType('console');
+  const byType = await runtimeEventRepository.getByType('network');
 
   return {
     created: created.event,
