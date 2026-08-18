@@ -137,6 +137,33 @@ export class AnalysisOrchestrator {
           }
         }
 
+        // Console error analysis
+        const consoleEvents = events.filter((e) => e.type === 'console');
+        for (const e of consoleEvents) {
+          const level = String(e.data['level'] || '');
+          const msg = String(e.data['message'] || '');
+          if (level === 'error' || msg.includes('Uncaught') || msg.includes('TypeError') || msg.includes('Error')) {
+            findings.push({
+              findingId: `fnd_console_err_${page.pageId}_${findings.length + 1}`,
+              findingType: 'unhandled_runtime_error',
+              category: 'error',
+              severity: 'critical',
+              title: 'Unhandled JavaScript runtime exception',
+              observedFact: `Observed uncaught runtime error in browser console: "${msg.slice(0, 120)}"`,
+              possibleInterpretation: 'Null pointer dereference or missing object property in event handler.',
+              requiredAdditionalContext: 'Inspect component stack trace and verify null-checks on dynamic state.',
+              analysis: `Uncaught exception occurred at runtime: ${msg}`,
+              confidence: 1.0,
+              likelyImpact: 'Can cause application crashes, white screen of death, or broken UI components.',
+              evidence: {
+                message: msg,
+                stack: e.data['stack'] || undefined,
+                eventIds: [e.eventId]
+              }
+            });
+          }
+        }
+
         // 2. Prepare AI Analysis Package
         const analysisPackage: AIAnalysisResultPackage = {
           batchId,
