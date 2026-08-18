@@ -1,13 +1,16 @@
-"""Deterministic Analysis Service for Milestone 3B.
+"""Unified Analysis Service for Milestone 3B & 3C.
 
-Transforms an AIAnalysisBatch into a structured AnalysisResponse.
-This service does NOT call external LLM APIs and produces objective,
-evidence-grounded placeholder analyses separating observed facts from interpretations.
+Supports both:
+1. Deterministic rule-grounded analysis (Milestone 3B default).
+2. LLM-powered structured analysis via LLMProvider / Groq (Milestone 3C).
 """
 
 from typing import Any, Dict, List, Optional
+from app.config import LLM_PROVIDER
 from app.models.request import AIAnalysisBatch, FindingItem
 from app.models.response import AnalysisResponse, FindingAnalysisItem
+from app.providers.base import LLMProvider, LLMProviderError
+from app.providers.factory import get_llm_provider
 
 
 def _format_ms(val: Optional[float]) -> str:
@@ -18,7 +21,8 @@ def _format_ms(val: Optional[float]) -> str:
     return f"{val}ms"
 
 
-def generate_finding_analysis(finding: FindingItem) -> FindingAnalysisItem:
+def generate_deterministic_finding_analysis(finding: FindingItem) -> FindingAnalysisItem:
+    """Produces deterministic finding analysis separating fact, interpretation, and context."""
     ev = finding.evidence
     ft = finding.findingType
 
@@ -139,7 +143,7 @@ def generate_finding_analysis(finding: FindingItem) -> FindingAnalysisItem:
         possible_interpretation = "Pattern matched detection rule."
         required_context = "Further source code inspection required."
 
-    analysis_text = f"{observed_fact} {possible_interpretation} {required_context}"
+    analysis_text = f"{observed_fact} {possible_interpretation} {required_context}".strip()
 
     evidence_dict: Dict[str, Any] = {
         "count": ev.count,
@@ -167,14 +171,18 @@ def generate_finding_analysis(finding: FindingItem) -> FindingAnalysisItem:
         possibleInterpretation=possible_interpretation,
         requiredAdditionalContext=required_context,
         analysis=analysis_text,
+        confidence=finding.confidence,
         evidence=evidence_dict
     )
 
 
-def analyze_batch(batch: AIAnalysisBatch) -> AnalysisResponse:
-    """Performs deterministic, rule-grounded analysis on a validated AIAnalysisBatch."""
+generate_finding_analysis = generate_deterministic_finding_analysis
+
+
+def analyze_deterministic(batch: AIAnalysisBatch) -> AnalysisResponse:
+    """Executes deterministic 3B analysis."""
     finding_analyses: List[FindingAnalysisItem] = [
-        generate_finding_analysis(f) for f in batch.findings
+        generate_deterministic_finding_analysis(f) for f in batch.findings
     ]
 
     total_findings = len(finding_analyses)
@@ -201,3 +209,23 @@ def analyze_batch(batch: AIAnalysisBatch) -> AnalysisResponse:
         summary=summary,
         findings=finding_analyses
     )
+
+
+def analyze_batch(
+    batch: AIAnalysisBatch,
+    provider: Optional[LLMProvider] = None,
+    mode: Optional[str] = None
+) -> AnalysisResponse:
+    """Analyzes an AIAnalysisBatch using either an LLMProvider or deterministic fallback."""
+    # If a provider is explicitly supplied, use it
+    if provider is not None:
+        return provider.analyze_batch(batch)
+
+    # If LLM mode is explicitly requested or configured as active
+    if mode == "llm":
+        active_provider = get_llm_provider()
+        if active_provider is not None:
+            return active_provider.analyze_batch(batch)
+
+    # Default: deterministic analysis
+    return analyze_deterministic(batch)

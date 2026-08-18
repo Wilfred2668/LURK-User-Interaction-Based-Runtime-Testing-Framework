@@ -14,15 +14,18 @@ class FindingAnalysisItem(BaseModel):
     possibleInterpretation: str = Field(..., min_length=1)
     requiredAdditionalContext: str = Field(..., min_length=1)
     analysis: str = Field(..., min_length=1)
+    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    likelyImpact: Optional[str] = None
     evidence: Dict[str, Any] = Field(default_factory=dict)
 
 
 class AnalysisResponse(BaseModel):
-    analysisVersion: str = "3B.1"
+    analysisVersion: str = Field(default="3C.1")
     batchId: str = Field(..., min_length=1)
     sessionId: str = Field(..., min_length=1)
     websiteId: str = Field(..., min_length=1)
     pageId: str = Field(..., min_length=1)
-    status: str = "completed"
+    status: str = Field(default="completed")
     summary: str = Field(..., min_length=1)
+    engineeringAssessment: Optional[str] = None
     findings: List[FindingAnalysisItem] = Field(default_factory=list)
