@@ -5,3 +5,6 @@ export * from './validation/validate-session.js';
 export * from './validation/validate-ai-analysis.js';
 export * from './repository/session-repository.js';
 export * from './repository/ai-analysis-repository.js';
+export * from './services/query-service.js';
+export * from './api/schemas/responses.js';
+export * from './api/app.js';
