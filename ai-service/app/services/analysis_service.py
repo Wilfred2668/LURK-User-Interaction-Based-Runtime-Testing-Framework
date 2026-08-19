@@ -216,16 +216,25 @@ def analyze_batch(
     provider: Optional[LLMProvider] = None,
     mode: Optional[str] = None
 ) -> AnalysisResponse:
-    """Analyzes an AIAnalysisBatch using either an LLMProvider or deterministic fallback."""
-    # If a provider is explicitly supplied, use it
+    """Analyzes an AIAnalysisBatch using an LLMProvider when available, with deterministic fallback."""
+    # 1. Explicit provider
     if provider is not None:
         return provider.analyze_batch(batch)
 
-    # If LLM mode is explicitly requested or configured as active
-    if mode == "llm":
-        active_provider = get_llm_provider()
-        if active_provider is not None:
-            return active_provider.analyze_batch(batch)
+    # 2. If deterministic mode is explicitly requested
+    if mode == "deterministic":
+        return analyze_deterministic(batch)
 
-    # Default: deterministic analysis
+    # 3. LLM mode (explicit or configured via LLM_PROVIDER)
+    should_try_llm = mode == "llm" or (LLM_PROVIDER and LLM_PROVIDER not in ("none", "disabled", ""))
+    if should_try_llm:
+        try:
+            active_provider = get_llm_provider()
+            if active_provider is not None:
+                return active_provider.analyze_batch(batch)
+        except Exception as e:
+            # Fall back to deterministic on provider error
+            print(f"[AI_SERVICE] LLM provider error: {e}. Using deterministic fallback.")
+
+    # 4. Default: deterministic analysis
     return analyze_deterministic(batch)

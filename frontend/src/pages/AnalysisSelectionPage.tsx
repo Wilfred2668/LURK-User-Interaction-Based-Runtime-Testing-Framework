@@ -4,7 +4,7 @@ import { PageListItemDto, WebsiteDto } from '../types/api.js';
 import { PageSelectorTree } from '../components/analysis/PageSelectorTree.js';
 import { Card } from '../components/ui/Card.js';
 import { Button } from '../components/ui/Button.js';
-import { ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 
 interface AnalysisSelectionPageProps {
   sessionId: string;
@@ -17,6 +17,8 @@ interface TreeItem {
   pages: PageListItemDto[];
 }
 
+type ProgressStep = 'idle' | 'preparing' | 'inferencing' | 'saving' | 'completed';
+
 export const AnalysisSelectionPage: React.FC<AnalysisSelectionPageProps> = ({
   sessionId,
   websiteId,
@@ -25,9 +27,8 @@ export const AnalysisSelectionPage: React.FC<AnalysisSelectionPageProps> = ({
   const [tree, setTree] = useState<TreeItem[]>([]);
   const [selectedPageIds, setSelectedPageIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [progressStep, setProgressStep] = useState<ProgressStep>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [analysisSuccess, setAnalysisSuccess] = useState(false);
   const [focusedWebsite, setFocusedWebsite] = useState<WebsiteDto | null>(null);
 
   useEffect(() => {
@@ -37,7 +38,6 @@ export const AnalysisSelectionPage: React.FC<AnalysisSelectionPageProps> = ({
         const treeItems: TreeItem[] = [];
         const initialSelected: string[] = [];
 
-        // If scoped to a specific website, filter only that website
         const targetWebsites = websiteId
           ? websites.filter((w) => w.websiteId === websiteId)
           : websites;
@@ -65,6 +65,16 @@ export const AnalysisSelectionPage: React.FC<AnalysisSelectionPageProps> = ({
       });
   }, [sessionId, websiteId]);
 
+  const allPageIds = tree.flatMap((t) => t.pages.map((p) => p.pageId));
+
+  const handleSelectAll = () => {
+    setSelectedPageIds(allPageIds);
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedPageIds([]);
+  };
+
   const handleTogglePage = (pageId: string) => {
     if (selectedPageIds.includes(pageId)) {
       setSelectedPageIds(selectedPageIds.filter((id) => id !== pageId));
@@ -87,26 +97,32 @@ export const AnalysisSelectionPage: React.FC<AnalysisSelectionPageProps> = ({
   };
 
   const handleStartAnalysis = async () => {
-    if (selectedPageIds.length === 0) return;
+    if (selectedPageIds.length === 0 || progressStep !== 'idle') return;
 
-    setIsAnalyzing(true);
     setError(null);
+    setProgressStep('preparing');
+
+    // Simulate realistic progress feedback across execution stages
+    const stepTimer1 = setTimeout(() => setProgressStep('inferencing'), 400);
+    const stepTimer2 = setTimeout(() => setProgressStep('saving'), 1200);
 
     try {
       await apiClient.startAIAnalysis(sessionId, selectedPageIds);
-      setIsAnalyzing(false);
-      setAnalysisSuccess(true);
+      clearTimeout(stepTimer1);
+      clearTimeout(stepTimer2);
+      setProgressStep('completed');
 
-      // Return to website page if scoped, else session page
       setTimeout(() => {
         if (websiteId) {
-          onNavigate(`/sessions/${sessionId}/websites/${websiteId}`);
+          onNavigate(`/website?sessionId=${sessionId}&websiteId=${websiteId}`);
         } else {
-          onNavigate(`/sessions/${sessionId}`);
+          onNavigate(`/session?id=${sessionId}`);
         }
       }, 1200);
     } catch (err: any) {
-      setIsAnalyzing(false);
+      clearTimeout(stepTimer1);
+      clearTimeout(stepTimer2);
+      setProgressStep('idle');
       setError(err.message || 'Failed to complete AI analysis');
     }
   };
@@ -115,7 +131,7 @@ export const AnalysisSelectionPage: React.FC<AnalysisSelectionPageProps> = ({
     return <Card style={{ padding: '3.5rem', textAlign: 'center', color: '#71717A' }}>Loading available pages...</Card>;
   }
 
-  const totalAvailablePages = tree.reduce((acc, t) => acc + t.pages.length, 0);
+  const totalAvailablePages = allPageIds.length;
   const totalFindingsInSelection = tree.reduce((acc, t) => {
     return (
       acc +
@@ -126,18 +142,36 @@ export const AnalysisSelectionPage: React.FC<AnalysisSelectionPageProps> = ({
   }, 0);
 
   const backUrl = websiteId
-    ? `/sessions/${sessionId}/websites/${websiteId}`
-    : `/sessions/${sessionId}`;
+    ? `/website?sessionId=${sessionId}&websiteId=${websiteId}`
+    : `/session?id=${sessionId}`;
 
   const backLabel = focusedWebsite
     ? `Back to ${focusedWebsite.origin}`
     : 'Back to Session Overview';
+
+  const isBusy = progressStep !== 'idle';
+
+  const getProgressLabel = () => {
+    switch (progressStep) {
+      case 'preparing':
+        return 'Preparing telemetry batches...';
+      case 'inferencing':
+        return 'Running AI inference (Python/Groq)...';
+      case 'saving':
+        return 'Saving analysis results to Supabase...';
+      case 'completed':
+        return 'Analysis complete!';
+      default:
+        return 'Start AI Analysis';
+    }
+  };
 
   return (
     <div>
       {/* Navigation Back */}
       <button
         onClick={() => onNavigate(backUrl)}
+        disabled={isBusy}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
@@ -146,40 +180,86 @@ export const AnalysisSelectionPage: React.FC<AnalysisSelectionPageProps> = ({
           border: 'none',
           color: '#71717A',
           fontSize: '0.8125rem',
-          cursor: 'pointer',
+          cursor: isBusy ? 'not-allowed' : 'pointer',
           marginBottom: '1rem',
-          fontWeight: 500
+          fontWeight: 500,
+          opacity: isBusy ? 0.5 : 1
         }}
       >
         <ArrowLeft size={14} /> {backLabel}
       </button>
 
-      {/* Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#09090B', marginBottom: '0.25rem', letterSpacing: '-0.03em' }}>
-          {focusedWebsite ? `Analyze Pages — ${focusedWebsite.origin}` : 'Analyze Session with AI'}
-        </h1>
-        <p style={{ fontSize: '0.875rem', color: '#71717A' }}>
-          Select specific pages to send to the AI Analysis Engine. Only selected pages will be analyzed.
-        </p>
+      {/* Header & Quick Action Buttons */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: '#09090B', marginBottom: '0.2rem', letterSpacing: '-0.02em' }}>
+            {focusedWebsite ? `Analyze Pages — ${focusedWebsite.origin}` : 'Analyze Session with AI'}
+          </h1>
+          <p style={{ fontSize: '0.8125rem', color: '#71717A' }}>
+            Select specific pages to send to the AI Analysis Engine. Only selected pages will be analyzed.
+          </p>
+        </div>
+
+        {/* Bulk Select/Deselect Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button
+            onClick={handleSelectAll}
+            disabled={isBusy || selectedPageIds.length === totalAvailablePages}
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              padding: '0.35rem 0.65rem',
+              borderRadius: '4px',
+              border: '1px solid #E4E4E7',
+              backgroundColor: '#FFFFFF',
+              color: '#09090B',
+              cursor: isBusy ? 'not-allowed' : 'pointer',
+              opacity: isBusy ? 0.5 : 1
+            }}
+          >
+            Select All
+          </button>
+          <button
+            onClick={handleDeselectAll}
+            disabled={isBusy || selectedPageIds.length === 0}
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              padding: '0.35rem 0.65rem',
+              borderRadius: '4px',
+              border: '1px solid #E4E4E7',
+              backgroundColor: '#FFFFFF',
+              color: '#71717A',
+              cursor: isBusy ? 'not-allowed' : 'pointer',
+              opacity: isBusy ? 0.5 : 1
+            }}
+          >
+            Deselect All
+          </button>
+        </div>
       </div>
 
       {error && (
-        <Card style={{ padding: '1rem', borderColor: '#FECACA', backgroundColor: '#FEF2F2', color: '#991B1B', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
-            <AlertCircle size={16} /> Error starting AI analysis
+        <Card style={{ padding: '1rem 1.25rem', borderColor: '#FECACA', backgroundColor: '#FEF2F2', color: '#991B1B', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.875rem' }}>
+              <AlertCircle size={16} /> Error starting AI analysis
+            </div>
+            <div style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>{error}</div>
           </div>
-          <div style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>{error}</div>
+          <Button variant="secondary" onClick={handleStartAnalysis} icon={<RefreshCw size={13} />}>
+            Retry
+          </Button>
         </Card>
       )}
 
-      {analysisSuccess && (
+      {progressStep === 'completed' && (
         <Card style={{ padding: '1.25rem', borderColor: '#BBF7D0', backgroundColor: '#F0FDF4', color: '#166534', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
             <CheckCircle2 size={18} color="#16A34A" /> AI Analysis Completed Successfully!
           </div>
           <div style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>
-            Persisted analysis results to Supabase. Redirecting...
+            Persisted structured findings to Supabase. Redirecting...
           </div>
         </Card>
       )}
@@ -217,12 +297,12 @@ export const AnalysisSelectionPage: React.FC<AnalysisSelectionPageProps> = ({
 
         <Button
           variant="primary"
-          isLoading={isAnalyzing}
-          disabled={selectedPageIds.length === 0 || isAnalyzing || analysisSuccess}
+          isLoading={isBusy && progressStep !== 'completed'}
+          disabled={selectedPageIds.length === 0 || isBusy}
           onClick={handleStartAnalysis}
-          style={{ minWidth: '160px' }}
+          style={{ minWidth: '175px' }}
         >
-          {isAnalyzing ? 'Analyzing...' : 'Start AI Analysis'}
+          {getProgressLabel()}
         </Button>
       </Card>
     </div>

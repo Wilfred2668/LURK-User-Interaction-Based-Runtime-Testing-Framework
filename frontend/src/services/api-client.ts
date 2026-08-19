@@ -69,5 +69,8 @@ export const apiClient = {
     fetchJson<AnalysisOrchestrationResult>(`/api/sessions/${sessionId}/analyze`, {
       method: 'POST',
       body: JSON.stringify({ pageIds })
-    })
+    }),
+
+  // System Health & Status
+  getSystemStatus: () => fetchJson<import('../types/api.js').SystemStatusDto>('/api/system/status')
 };

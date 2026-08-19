@@ -8,7 +8,7 @@ import type {
 } from '../types/findings.js';
 import type { InsightConfig } from './insight-config.js';
 import { DEFAULT_INSIGHT_CONFIG } from './insight-config.js';
-import { detectInsightsFromPattern } from './detect-insights.js';
+import { detectInsightsFromPattern, groupPerformanceFindings } from './detect-insights.js';
 
 const SEVERITY_RANK: Record<FindingSeverity, number> = {
   critical: 0,
@@ -56,8 +56,9 @@ export function extractInsights(
         pageFindings.push(...patternFindings);
       }
 
-      sortFindings(pageFindings);
-      allSessionFindings.push(...pageFindings);
+      const groupedPageFindings = groupPerformanceFindings(pageFindings);
+      sortFindings(groupedPageFindings);
+      allSessionFindings.push(...groupedPageFindings);
 
       return {
         pageId: page.pageId,
@@ -70,7 +71,7 @@ export function extractInsights(
         createdAt: page.createdAt,
         routes: [...page.routes],
         patterns: [...page.patterns],
-        findings: pageFindings
+        findings: groupedPageFindings
       };
     });
 

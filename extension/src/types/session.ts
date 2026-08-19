@@ -80,7 +80,8 @@ export type MessageType =
   | 'ROUTE_EVENT'
   | 'CONSOLE_EVENT'
   | 'NETWORK_EVENT'
-  | 'PERFORMANCE_EVENT';
+  | 'PERFORMANCE_EVENT'
+  | 'INTERACTION_EVENT';
 
 export interface BaseMessage {
   type: MessageType;
@@ -204,6 +205,23 @@ export interface PerformanceEventMessage extends BaseMessage {
   payload: PerformanceRuntimeData;
 }
 
+export interface InteractionRuntimeData {
+  interactionType: 'click' | 'submit' | 'keydown';
+  elementTag: string;
+  elementId?: string | null;
+  elementClasses?: string | null;
+  elementRole?: string | null;
+  accessibleLabel?: string | null;
+  textPreview?: string | null;
+  selector?: string | null;
+  timestamp: string;
+}
+
+export interface InteractionEventMessage extends BaseMessage {
+  type: 'INTERACTION_EVENT';
+  payload: InteractionRuntimeData;
+}
+
 export interface GetFinalizedSessionMessage extends BaseMessage {
   type: 'GET_FINALIZED_SESSION';
 }
@@ -217,7 +235,8 @@ export type ExtensionMessage =
   | RouteEventMessage
   | ConsoleEventMessage
   | NetworkEventMessage
-  | PerformanceEventMessage;
+  | PerformanceEventMessage
+  | InteractionEventMessage;
 
 export type RuntimeResponse =
   | { ok: true; type: 'SESSION_STARTED'; session: SessionState }

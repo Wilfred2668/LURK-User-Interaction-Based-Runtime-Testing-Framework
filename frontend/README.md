@@ -1,22 +1,23 @@
-# Layer 4 — Frontend Dashboard: RuntimeLens (Milestone 4D)
+# Layer 4 — Frontend Dashboard: LURK (Milestone 4D)
 
-RuntimeLens is a modern, minimalist developer dashboard built with **React**, **TypeScript**, and **Vite**. It provides human-readable visibility into browser runtime telemetry, deterministic engineering findings, and a user-controlled AI analysis workflow.
+LURK is a modern, minimalist developer dashboard built with **React**, **TypeScript**, and **Vite**. It provides human-readable visibility into browser runtime telemetry, deterministic engineering findings, and a user-controlled AI analysis workflow.
 
 ---
 
-## 1. Architecture & Security Guarantees
+## 🏛 Architecture Context
 
 ```
-Chrome Extension (1A-1I)
-    │ (Raw telemetry)
-    ▼
-Supabase PostgreSQL (4A)
-    │
-    ▼ (HTTP Read API)
-[Application Read API] (4C) ◄────────┐
-    │                                │ User selects pages & clicks
-    ▼                                │ "Start AI Analysis"
-[RuntimeLens Frontend (4D)] ─────────┘
+[Layer 1 Chrome Extension]
+           │ (Captured interaction events, web vitals, errors, fetch traces)
+           ▼
+[Layer 2 Processing Engine]
+           │ (Deterministic findings generation, session aggregation)
+           ▼
+[Layer 3 Supabase Database] ───► [FastAPI AI Service (Groq LLM)]
+           │                                   │
+           │                                   │ (Structured AI diagnostic reports)
+           ▼                                   ▼
+[LURK Frontend (4D)] ─────────┘
     │
     ▼ (POST /api/sessions/:sessionId/analyze)
 [Application Orchestration Service]

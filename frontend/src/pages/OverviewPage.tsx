@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '../services/api-client.js';
 import { SessionListItemDto } from '../types/api.js';
-import { Card } from '../components/ui/Card.js';
 import { Button } from '../components/ui/Button.js';
 import { EmptyState } from '../components/ui/EmptyState.js';
-import { ArrowRight, Activity, Database, Sparkles } from 'lucide-react';
+import { Activity, Database, Sparkles, ArrowRight, Clock, Globe } from 'lucide-react';
 
 interface OverviewPageProps {
   onNavigate: (path: string) => void;
@@ -18,175 +17,170 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ onNavigate }) => {
   useEffect(() => {
     apiClient
       .getSessions()
-      .then((data) => {
-        setSessions(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
+      .then((data) => { setSessions(data); setLoading(false); })
+      .catch((err) => { setError(err.message); setLoading(false); });
   }, []);
 
-  const totalSessions = sessions.length;
-
   return (
-    <div>
-      {/* Clean Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#09090B', marginBottom: '0.25rem', letterSpacing: '-0.03em' }}>
-          Overview
-        </h1>
-        <p style={{ fontSize: '0.875rem', color: '#71717A' }}>
-          Real-time summary of captured browser runtime sessions and telemetry.
-        </p>
-      </div>
-
-      {/* Metrics Row with Textured Cards */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '1.25rem',
-          marginBottom: '2.5rem'
-        }}
-      >
-        <Card textured>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <div style={{ fontSize: '0.75rem', color: '#71717A', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.04em' }}>
-              Total Sessions
-            </div>
-            <Database size={15} color="#A1A1AA" />
-          </div>
-          <div style={{ fontSize: '1.875rem', fontWeight: 700, color: '#09090B', letterSpacing: '-0.03em' }}>
-            {totalSessions}
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#10B981', marginTop: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-            <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#10B981' }} />
-            Persisted in Supabase
-          </div>
-        </Card>
-
-        <Card textured>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <div style={{ fontSize: '0.75rem', color: '#71717A', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.04em' }}>
-              Deterministic Engine
-            </div>
-            <Activity size={15} color="#A1A1AA" />
-          </div>
-          <div style={{ fontSize: '1.875rem', fontWeight: 700, color: '#09090B', letterSpacing: '-0.03em' }}>
-            Automated
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#4F46E5', marginTop: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-            <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#4F46E5' }} />
-            Layer 2 pattern detection
-          </div>
-        </Card>
-
-        <Card textured>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <div style={{ fontSize: '0.75rem', color: '#71717A', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.04em' }}>
-              AI Analysis Engine
-            </div>
-            <Sparkles size={15} color="#A1A1AA" />
-          </div>
-          <div style={{ fontSize: '1.875rem', fontWeight: 700, color: '#09090B', letterSpacing: '-0.03em' }}>
-            User Controlled
-          </div>
-          <div style={{ fontSize: '0.75rem', color: '#71717A', marginTop: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-            <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#71717A' }} />
-            Groq LLM / Deterministic 3C
-          </div>
-        </Card>
-      </div>
-
-      {/* Recent Sessions Section */}
-      <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      {/* Fixed Page Header */}
+      <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.25rem', flexShrink: 0 }}>
         <div>
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: '#09090B' }}>
-            Recent Monitoring Sessions
-          </h2>
-          <p style={{ fontSize: '0.8125rem', color: '#71717A' }}>
-            Select a session to inspect websites, pages, and trigger AI analysis.
+          <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: '#09090B', letterSpacing: '-0.025em' }}>Overview</h1>
+          <p style={{ fontSize: '0.8125rem', color: '#71717A', marginTop: '0.2rem' }}>
+            Real-time summary of captured browser runtime sessions.
           </p>
         </div>
-        <Button variant="secondary" onClick={() => onNavigate('/sessions')}>
-          View All Sessions
+        <Button variant="primary" onClick={() => onNavigate('/sessions')}>
+          View All Sessions <ArrowRight size={13} />
         </Button>
       </div>
 
+      {/* Fixed Stats */}
+      <div className="stat-grid" style={{ marginBottom: '1.25rem', flexShrink: 0 }}>
+        <div className="stat-card" style={{ position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div className="stat-label">Total Sessions</div>
+            <div className="stat-value">{sessions.length}</div>
+            <div className="stat-hint">Persisted in Supabase</div>
+          </div>
+          <Database
+            size={76}
+            strokeWidth={1.5}
+            style={{
+              position: 'absolute',
+              right: '-8px',
+              bottom: '-10px',
+              color: '#09090B',
+              opacity: 0.06,
+              pointerEvents: 'none'
+            }}
+          />
+        </div>
+
+        <div className="stat-card" style={{ position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div className="stat-label">Detection Engine</div>
+            <div className="stat-value" style={{ fontSize: '1.25rem' }}>Automated</div>
+            <div className="stat-hint">Layer 2 pattern analysis</div>
+          </div>
+          <Activity
+            size={76}
+            strokeWidth={1.5}
+            style={{
+              position: 'absolute',
+              right: '-8px',
+              bottom: '-10px',
+              color: '#09090B',
+              opacity: 0.06,
+              pointerEvents: 'none'
+            }}
+          />
+        </div>
+
+        <div className="stat-card" style={{ position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div className="stat-label">AI Engine</div>
+            <div className="stat-value" style={{ fontSize: '1.25rem' }}>On-Demand</div>
+            <div className="stat-hint">Groq LLM diagnostics</div>
+          </div>
+          <Sparkles
+            size={76}
+            strokeWidth={1.5}
+            style={{
+              position: 'absolute',
+              right: '-8px',
+              bottom: '-10px',
+              color: '#09090B',
+              opacity: 0.06,
+              pointerEvents: 'none'
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Fixed Section Header */}
+      <div className="section-header" style={{ flexShrink: 0, marginBottom: '0.75rem' }}>
+        <h2>Recent Sessions</h2>
+        <span style={{ fontSize: '0.75rem', color: '#71717A' }}>Click a row to inspect pages & trigger analysis</span>
+      </div>
+
       {loading ? (
-        <Card style={{ padding: '3.5rem', textAlign: 'center', color: '#71717A' }}>
-          Loading monitoring sessions...
-        </Card>
+        <div style={{ padding: '3rem', textAlign: 'center', color: '#71717A', background: '#fff', borderRadius: '8px', border: '1px solid #E4E4E7' }}>
+          Loading sessions…
+        </div>
       ) : error ? (
-        <Card style={{ padding: '2rem', borderColor: '#FECACA', backgroundColor: '#FEF2F2', color: '#991B1B' }}>
-          <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Unable to load sessions</div>
-          <div style={{ fontSize: '0.8125rem' }}>{error}</div>
-        </Card>
+        <div style={{ padding: '1.25rem', background: '#fff', borderRadius: '8px', border: '1px solid #E4E4E7', color: '#09090B' }}>
+          <strong>Failed to load sessions</strong>
+          <p style={{ fontSize: '0.8125rem', color: '#71717A', marginTop: '0.25rem' }}>{error}</p>
+        </div>
       ) : sessions.length === 0 ? (
         <EmptyState
           title="No sessions captured yet"
           description="Use the Chrome extension to start recording browser interactions and finalise a session."
+          action={
+            <Button variant="primary" onClick={() => onNavigate('/sessions')}>Go to Sessions</Button>
+          }
         />
       ) : (
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Session ID</th>
-                <th>Root Origin</th>
-                <th>Started At</th>
-                <th>Duration</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessions.slice(0, 5).map((s) => {
-                const durationSec = Math.round(s.durationMs / 1000);
-                const durationStr = `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`;
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingRight: '0.25rem' }}>
+          {sessions.slice(0, 6).map((s) => {
+            const durationSec = Math.round(s.durationMs / 1000);
+            const dur = `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`;
+            const isFinalized = s.status === 'finalized';
 
-                return (
-                  <tr
-                    key={s.sessionId}
-                    className="table-row-hover"
-                    onClick={() => onNavigate(`/sessions/${s.sessionId}`)}
+            return (
+              <div
+                key={s.sessionId}
+                className="session-row"
+                onClick={() => onNavigate(`/session?id=${s.sessionId}`)}
+                role="button"
+              >
+                {/* Status dot */}
+                <span
+                  style={{
+                    width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
+                    backgroundColor: isFinalized ? '#22C55E' : '#F59E0B'
+                  }}
+                />
+
+                {/* Origin */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.8125rem', color: '#09090B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {s.rootUrl || 'Unknown origin'}
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: '#71717A', marginTop: '0.1rem' }}>
+                    {s.sessionId}
+                  </div>
+                </div>
+
+                {/* Meta */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexShrink: 0 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: '#71717A' }}>
+                    <Clock size={11} /> {dur}
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: '#71717A' }}>
+                    {new Date(s.startedAt).toLocaleDateString()}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.6875rem',
+                      fontWeight: 600,
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: '999px',
+                      backgroundColor: isFinalized ? '#DCFCE7' : '#FEF9C3',
+                      color: isFinalized ? '#166534' : '#854D0E',
+                      border: `1px solid ${isFinalized ? '#BBF7D0' : '#FEF08A'}`,
+                      textTransform: 'capitalize'
+                    }}
                   >
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: '#4F46E5', fontWeight: 600 }}>
-                      {s.sessionId}
-                    </td>
-                    <td style={{ fontWeight: 500, color: '#09090B' }}>{s.rootUrl || 'Unknown'}</td>
-                    <td style={{ color: '#71717A' }}>
-                      {new Date(s.startedAt).toLocaleString()}
-                    </td>
-                    <td style={{ color: '#71717A', fontFamily: 'var(--font-mono)' }}>{durationStr}</td>
-                    <td>
-                      <span
-                        style={{
-                          fontSize: '0.6875rem',
-                          backgroundColor: '#F4F4F5',
-                          color: '#3F3F46',
-                          border: '1px solid #E4E4E7',
-                          padding: '0.2rem 0.5rem',
-                          borderRadius: '4px',
-                          textTransform: 'capitalize',
-                          fontWeight: 500
-                        }}
-                      >
-                        {s.status}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#4F46E5', fontSize: '0.8125rem', fontWeight: 600 }}>
-                        Inspect <ArrowRight size={14} />
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    {s.status}
+                  </span>
+                  <ArrowRight size={14} color="#A1A1AA" />
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -1080,6 +1080,32 @@ async function buildFinalizedSessionPackage(
   };
 }
 
+const APPLICATION_INGEST_URL = 'http://localhost:3001/api/sessions/ingest';
+
+async function syncSessionToBackend(sessionPackage: FinalizedSessionPackage): Promise<boolean> {
+  try {
+    const res = await fetch(APPLICATION_INGEST_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(sessionPackage)
+    });
+
+    if (res.ok) {
+      console.log(`${SESSION_LOG_PREFIX} Successfully persisted ${sessionPackage.session.sessionId} to Supabase via Application API.`);
+      return true;
+    } else {
+      const errBody = await res.text();
+      console.warn(`${SESSION_LOG_PREFIX} Failed to ingest session ${sessionPackage.session.sessionId} (HTTP ${res.status}): ${errBody}`);
+      return false;
+    }
+  } catch (error) {
+    console.warn(`${SESSION_LOG_PREFIX} Unable to reach Application API at ${APPLICATION_INGEST_URL}:`, error);
+    return false;
+  }
+}
+
 async function stopSession(): Promise<RuntimeResponse> {
   const currentSession = await readSessionState();
 
@@ -1091,6 +1117,7 @@ async function stopSession(): Promise<RuntimeResponse> {
   if (currentSession.status === 'finalized' && currentSession.endedAt) {
     const existingPackage = await readFinalizedSessionPackage();
     if (existingPackage) {
+      void syncSessionToBackend(existingPackage);
       return { ok: true, type: 'SESSION_STOPPED', session: currentSession, package: existingPackage };
     }
     const pkg = await buildFinalizedSessionPackage(
@@ -1099,6 +1126,7 @@ async function stopSession(): Promise<RuntimeResponse> {
       currentSession.durationMs || 0
     );
     await writeFinalizedSessionPackage(pkg);
+    void syncSessionToBackend(pkg);
     return { ok: true, type: 'SESSION_STOPPED', session: currentSession, package: pkg };
   }
 
@@ -1118,6 +1146,9 @@ async function stopSession(): Promise<RuntimeResponse> {
   await writeFinalizedSessionPackage(sessionPackage);
 
   console.log(`${SESSION_LOG_PREFIX} Finalized ${stoppedSession.sessionId} (duration: ${durationMs}ms, websites: ${sessionPackage.websites.length})`);
+
+  // Automatically push finalized session to Supabase via Application API
+  void syncSessionToBackend(sessionPackage);
 
   return { ok: true, type: 'SESSION_STOPPED', session: stoppedSession, package: sessionPackage };
 }
@@ -1314,6 +1345,13 @@ if (!runtimeMessageListenerRegistered) {
             const payload = typedMessage as PerformanceEventMessage;
             const tabId = sender.tab?.id ?? null;
             await handlePerformanceEvent(payload.payload, tabId);
+            sendResponse({ ok: true, type: 'ROUTE_CAPTURED', route: null });
+            return;
+          }
+          case 'INTERACTION_EVENT': {
+            const payload = typedMessage as any;
+            const tabId = sender.tab?.id ?? null;
+            await handleInteractionEvent(payload.payload, tabId);
             sendResponse({ ok: true, type: 'ROUTE_CAPTURED', route: null });
             return;
           }
@@ -1542,6 +1580,60 @@ async function handlePerformanceEvent(
   }
 
   console.log('[PERFORMANCE] Event stored', saved.event.eventId, payload.performanceType);
+}
+
+async function handleInteractionEvent(
+  payload: {
+    interactionType: 'click' | 'submit' | 'keydown';
+    elementTag: string;
+    elementId?: string | null;
+    elementClasses?: string | null;
+    elementRole?: string | null;
+    accessibleLabel?: string | null;
+    textPreview?: string | null;
+    selector?: string | null;
+    timestamp: string;
+  },
+  senderTabId?: number | null
+): Promise<void> {
+  const session = await readSessionState();
+  if (!session || session.status !== 'active') {
+    return;
+  }
+
+  const targetTabId = senderTabId ?? session.activeTabId;
+  const activeTab = targetTabId !== null ? await chrome.tabs.get(targetTabId).catch(() => null) : null;
+  const page = activeTab ? getLatestPageForTab(session, activeTab.id ?? 0) : getCurrentTrackedPage(session);
+  const route = page ? session.routes.filter((item) => item.pageId === page.pageId).at(-1) ?? null : null;
+
+  const runtimeEvent = {
+    eventId: generateEventId(),
+    sessionId: session.sessionId,
+    pageId: page?.pageId ?? null,
+    routeId: route?.routeId ?? null,
+    tabId: activeTab?.id ?? targetTabId ?? null,
+    timestamp: payload.timestamp || createRuntimeEventTimestamp(),
+    type: 'interaction' as const,
+    data: {
+      interactionType: payload.interactionType,
+      elementTag: payload.elementTag,
+      elementId: payload.elementId ?? null,
+      elementClasses: payload.elementClasses ?? null,
+      elementRole: payload.elementRole ?? null,
+      accessibleLabel: payload.accessibleLabel ?? null,
+      textPreview: payload.textPreview ?? null,
+      selector: payload.selector ?? null,
+      timestamp: payload.timestamp
+    }
+  };
+
+  const saved = await runtimeEventPipeline.record(runtimeEvent);
+  if (!saved.ok) {
+    console.error('[INTERACTION] Failed to store runtime event:', saved.error);
+    return;
+  }
+
+  console.log('[INTERACTION] Event stored', saved.event.eventId, payload.elementTag, payload.textPreview);
 }
 
 console.log('[SESSION] Service worker initialized');

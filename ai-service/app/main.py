@@ -31,12 +31,14 @@ app.add_middleware(
 
 
 @app.get("/health", status_code=status.HTTP_200_OK, response_model=Dict[str, str])
+@app.get("/api/v1/health", status_code=status.HTTP_200_OK, response_model=Dict[str, str])
 def health_check() -> Dict[str, str]:
     """Health check endpoint returning service status."""
     return {"status": "ok"}
 
 
 @app.post("/analyze", status_code=status.HTTP_200_OK, response_model=AnalysisResponse)
+@app.post("/api/v1/analyze", status_code=status.HTTP_200_OK, response_model=AnalysisResponse)
 def analyze_page_batch(
     batch: AIAnalysisBatch,
     mode: Optional[str] = Query(None, description="Analysis mode: 'deterministic' or 'llm'")

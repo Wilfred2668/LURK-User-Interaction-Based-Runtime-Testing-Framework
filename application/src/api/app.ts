@@ -5,6 +5,7 @@ import { AnalysisOrchestrator } from '../services/analysis-orchestrator.js';
 import { createSessionsRouter } from './routes/sessions.js';
 import { createWebsitesRouter } from './routes/websites.js';
 import { createPagesRouter } from './routes/pages.js';
+import { createHealthRouter } from './routes/health.js';
 import { SessionRepository } from '../repository/session-repository.js';
 import { AIAnalysisRepository } from '../repository/ai-analysis-repository.js';
 import { ErrorResponseDto } from './schemas/responses.js';
@@ -21,16 +22,19 @@ export function createApp(sessionRepo: SessionRepository, aiRepo: AIAnalysisRepo
     : '*';
 
   app.use(cors({ origin: allowedOrigins }));
-  app.use(express.json());
+  app.use(express.json({ limit: '20mb' }));
 
-  // Health check endpoint
+  // Root health check endpoint
   app.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok' });
   });
 
   // Mount API routers
+  // 0. System health & status routes (/api/health, /api/system/status)
+  app.use('/api', createHealthRouter(sessionRepo, orchestrator.aiServiceUrl));
+
   // 1. Sessions root (/api/sessions)
-  app.use('/api/sessions', createSessionsRouter(queryService, orchestrator));
+  app.use('/api/sessions', createSessionsRouter(queryService, orchestrator, sessionRepo));
 
   // 2. Websites sub-routes (/api/sessions/:sessionId/websites)
   app.use('/api/sessions', createWebsitesRouter(queryService));

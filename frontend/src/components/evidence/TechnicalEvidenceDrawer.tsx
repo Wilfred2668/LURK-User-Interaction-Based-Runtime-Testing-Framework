@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Code2, Terminal } from 'lucide-react';
+import { ChevronDown, ChevronUp, Code2, Terminal, MousePointerClick, Clock } from 'lucide-react';
 
 interface TechnicalEvidenceDrawerProps {
   evidence: Record<string, unknown>;
@@ -7,7 +7,8 @@ interface TechnicalEvidenceDrawerProps {
 }
 
 export const TechnicalEvidenceDrawer: React.FC<TechnicalEvidenceDrawerProps> = ({
-  evidence
+  evidence,
+  findingType
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -16,14 +17,29 @@ export const TechnicalEvidenceDrawer: React.FC<TechnicalEvidenceDrawerProps> = (
   const count = typeof evidence['count'] === 'number' ? evidence['count'] : eventIds.length || 1;
   const url = typeof evidence['url'] === 'string' ? evidence['url'] : null;
   const method = typeof evidence['method'] === 'string' ? evidence['method'] : null;
-  const status = evidence['status'] !== undefined ? String(evidence['status']) : null;
+  const status = evidence['status'] !== undefined && evidence['status'] !== null ? String(evidence['status']) : null;
   const durationMs = evidence['durationMs'] || evidence['duration'] || null;
+  const stack = typeof evidence['stack'] === 'string' ? evidence['stack'] : null;
+  const representativeTasks = Array.isArray(evidence['representativeTasks']) ? evidence['representativeTasks'] : [];
+  const interactionTrigger = evidence['interactionTrigger'] as Record<string, any> | undefined;
+
+  let host: string | null = null;
+  let pathname: string | null = null;
+  if (url) {
+    try {
+      const parsed = new URL(url);
+      host = parsed.host;
+      pathname = parsed.pathname;
+    } catch {
+      pathname = url;
+    }
+  }
 
   return (
     <div
       style={{
         marginTop: '1rem',
-        borderTop: '1px solid #F0F0F0',
+        borderTop: '1px solid #F4F4F5',
         paddingTop: '0.875rem'
       }}
     >
@@ -35,35 +51,35 @@ export const TechnicalEvidenceDrawer: React.FC<TechnicalEvidenceDrawerProps> = (
           gap: '0.375rem',
           background: 'none',
           border: 'none',
-          color: '#4F46E5',
-          fontSize: '0.8125rem',
+          color: '#71717A',
+          fontSize: '0.75rem',
           fontWeight: 500,
           cursor: 'pointer',
           padding: 0
         }}
       >
-        <Code2 size={14} />
+        <Code2 size={13} />
         <span>{isOpen ? 'Hide technical evidence' : 'View technical evidence'}</span>
-        {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
       </button>
 
       {isOpen && (
         <div
           style={{
-            marginTop: '0.875rem',
-            backgroundColor: '#F8FAFC',
-            border: '1px solid #E2E8F0',
+            marginTop: '0.75rem',
+            backgroundColor: '#FAFAFA',
+            border: '1px solid #E4E4E7',
             borderRadius: '6px',
             padding: '1rem',
-            fontSize: '0.8125rem'
+            fontSize: '0.75rem'
           }}
         >
           {/* Structured Parameters */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: '0.75rem',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '0.875rem',
               marginBottom: '1rem'
             }}
           >
@@ -72,9 +88,14 @@ export const TechnicalEvidenceDrawer: React.FC<TechnicalEvidenceDrawerProps> = (
                 <div style={{ color: '#64748B', fontSize: '0.6875rem', textTransform: 'uppercase', fontWeight: 600 }}>
                   Target Endpoint
                 </div>
-                <div style={{ color: '#0F172A', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
-                  {method ? `${method} ` : ''}{url}
+                <div style={{ color: '#0F172A', fontFamily: 'var(--font-mono)', wordBreak: 'break-all', fontWeight: 500 }}>
+                  {method ? `${method} ` : ''}{pathname}
                 </div>
+                {host && (
+                  <div style={{ color: '#94A3B8', fontSize: '0.6875rem', marginTop: '0.15rem' }}>
+                    Host: {host}
+                  </div>
+                )}
               </div>
             )}
 
@@ -83,7 +104,7 @@ export const TechnicalEvidenceDrawer: React.FC<TechnicalEvidenceDrawerProps> = (
                 <div style={{ color: '#64748B', fontSize: '0.6875rem', textTransform: 'uppercase', fontWeight: 600 }}>
                   HTTP Status
                 </div>
-                <div style={{ color: '#0F172A', fontWeight: 500 }}>
+                <div style={{ color: '#0F172A', fontWeight: 600 }}>
                   {status}
                 </div>
               </div>
@@ -94,7 +115,7 @@ export const TechnicalEvidenceDrawer: React.FC<TechnicalEvidenceDrawerProps> = (
                 <div style={{ color: '#64748B', fontSize: '0.6875rem', textTransform: 'uppercase', fontWeight: 600 }}>
                   Total Occurrences
                 </div>
-                <div style={{ color: '#0F172A', fontWeight: 500 }}>
+                <div style={{ color: '#0F172A', fontWeight: 600 }}>
                   {count} captures
                 </div>
               </div>
@@ -105,12 +126,78 @@ export const TechnicalEvidenceDrawer: React.FC<TechnicalEvidenceDrawerProps> = (
                 <div style={{ color: '#64748B', fontSize: '0.6875rem', textTransform: 'uppercase', fontWeight: 600 }}>
                   Observed Duration
                 </div>
-                <div style={{ color: '#0F172A', fontWeight: 500 }}>
+                <div style={{ color: '#0F172A', fontWeight: 600 }}>
                   {String(durationMs)} ms
                 </div>
               </div>
             )}
           </div>
+
+          {/* Interaction Trigger Correlation Detail */}
+          {interactionTrigger && (
+            <div style={{ marginBottom: '1rem', backgroundColor: '#EEF2FF', border: '1px solid #E0E7FF', borderRadius: '6px', padding: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#4338CA', fontSize: '0.6875rem', textTransform: 'uppercase', fontWeight: 600, marginBottom: '0.25rem' }}>
+                <MousePointerClick size={12} />
+                <span>Preceding Interaction Correlation</span>
+              </div>
+              <div style={{ color: '#1E1B4B', fontSize: '0.75rem', lineHeight: '1.4' }}>
+                Event occurred <strong>{interactionTrigger.timeDeltaMs}ms</strong> after user interaction on <code>{interactionTrigger.selector || interactionTrigger.elementTag}</code> ({interactionTrigger.textPreview ? `"${interactionTrigger.textPreview}"` : 'interactive element'}).
+              </div>
+            </div>
+          )}
+
+          {/* Representative Severe Tasks (for Performance Degradation) */}
+          {representativeTasks.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#64748B', fontSize: '0.6875rem', textTransform: 'uppercase', fontWeight: 600, marginBottom: '0.35rem' }}>
+                <Clock size={12} />
+                <span>Representative Severe Blocking Tasks</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {representativeTasks.map((t: any, idx: number) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: '#FFFFFF',
+                      border: '1px solid #E2E8F0',
+                      padding: '0.35rem 0.625rem',
+                      borderRadius: '4px',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.75rem'
+                    }}
+                  >
+                    <span style={{ color: '#334155' }}>Task #{idx + 1} ({t.eventId})</span>
+                    <span style={{ color: '#EF4444', fontWeight: 600 }}>{Math.round(t.durationMs)} ms</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Stack Trace Preview if present */}
+          {stack && (
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ color: '#64748B', fontSize: '0.6875rem', textTransform: 'uppercase', fontWeight: 600, marginBottom: '0.25rem' }}>
+                Error Stack Trace
+              </div>
+              <pre
+                style={{
+                  backgroundColor: '#0F172A',
+                  color: '#F87171',
+                  padding: '0.625rem 0.875rem',
+                  borderRadius: '4px',
+                  fontSize: '0.6875rem',
+                  overflowX: 'auto',
+                  lineHeight: '1.4'
+                }}
+              >
+                {stack}
+              </pre>
+            </div>
+          )}
 
           {/* Developer Trace Box */}
           <div

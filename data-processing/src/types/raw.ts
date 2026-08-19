@@ -50,13 +50,30 @@ export interface RawConsoleEventData {
   message: string;
   arguments: unknown[];
   sourceUrl: string | null;
+  lineNumber?: number | null;
+  columnNumber?: number | null;
+  stack?: string | null;
   rawTimestamp: string;
+}
+
+export interface RawInteractionEventData {
+  interactionType: 'click' | 'input' | 'submit' | 'keydown';
+  elementTag: string;
+  elementId?: string | null;
+  elementClasses?: string | null;
+  elementRole?: string | null;
+  accessibleLabel?: string | null;
+  textPreview?: string | null;
+  selector?: string | null;
+  timestamp: string;
 }
 
 export interface RawNetworkEventData {
   requestType: 'fetch' | 'xhr';
   method: string;
   url: string;
+  origin?: string;
+  path?: string;
   status: number | null;
   statusText?: string;
   ok: boolean;

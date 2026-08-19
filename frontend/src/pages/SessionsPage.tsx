@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '../services/api-client.js';
 import { SessionListItemDto } from '../types/api.js';
-import { Card } from '../components/ui/Card.js';
 import { Button } from '../components/ui/Button.js';
 import { EmptyState } from '../components/ui/EmptyState.js';
-import { ArrowRight, RefreshCw } from 'lucide-react';
+import { ArrowRight, Clock, RefreshCw } from 'lucide-react';
 
 interface SessionsPageProps {
   onNavigate: (path: string) => void;
@@ -20,114 +19,102 @@ export const SessionsPage: React.FC<SessionsPageProps> = ({ onNavigate }) => {
     setError(null);
     apiClient
       .getSessions()
-      .then((data) => {
-        setSessions(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
+      .then((data) => { setSessions(data); setLoading(false); })
+      .catch((err) => { setError(err.message); setLoading(false); });
   };
 
-  useEffect(() => {
-    fetchSessions();
-  }, []);
+  useEffect(() => { fetchSessions(); }, []);
 
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '2rem'
-        }}
-      >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.25rem', flexShrink: 0 }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 600, color: '#171717', marginBottom: '0.25rem' }}>
+          <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: '#09090B', letterSpacing: '-0.025em' }}>
             Monitoring Sessions
           </h1>
-          <p style={{ fontSize: '0.875rem', color: '#737373' }}>
-            All browser sessions captured by the Chrome extension and stored in Supabase.
+          <p style={{ fontSize: '0.8125rem', color: '#71717A', marginTop: '0.2rem' }}>
+            All browser sessions captured by the Chrome extension.
           </p>
         </div>
-        <Button variant="secondary" onClick={fetchSessions} icon={<RefreshCw size={14} />}>
+        <Button variant="secondary" onClick={fetchSessions} icon={<RefreshCw size={13} />}>
           Refresh
         </Button>
       </div>
 
       {loading ? (
-        <Card style={{ padding: '3rem', textAlign: 'center', color: '#737373' }}>
-          Loading sessions...
-        </Card>
+        <div style={{ padding: '3rem', textAlign: 'center', color: '#71717A', background: '#fff', borderRadius: '8px', border: '1px solid #E4E4E7' }}>
+          Loading sessions…
+        </div>
       ) : error ? (
-        <Card style={{ padding: '2rem', borderColor: '#FEE2E2', backgroundColor: '#FEF2F2', color: '#991B1B' }}>
-          <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Unable to load sessions</div>
-          <div style={{ fontSize: '0.8125rem' }}>{error}</div>
-        </Card>
+        <div style={{ padding: '1.25rem', background: '#fff', borderRadius: '8px', border: '1px solid #E4E4E7' }}>
+          <strong style={{ color: '#09090B' }}>Failed to load sessions</strong>
+          <p style={{ fontSize: '0.8125rem', color: '#71717A', marginTop: '0.25rem' }}>{error}</p>
+        </div>
       ) : sessions.length === 0 ? (
         <EmptyState
           title="No sessions found"
-          description="Capture sessions using the extension to inspect runtime traffic and trigger AI analysis."
+          description="Capture sessions using the Chrome extension to inspect runtime traffic and trigger AI analysis."
         />
       ) : (
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Session ID</th>
-                <th>Root Origin</th>
-                <th>Started At</th>
-                <th>Duration</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessions.map((s) => {
-                const durationSec = Math.round(s.durationMs / 1000);
-                const durationStr = `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`;
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingRight: '0.25rem' }}>
+          {sessions.map((s) => {
+            const durationSec = Math.round(s.durationMs / 1000);
+            const dur = `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`;
+            const isFinalized = s.status === 'finalized';
 
-                return (
-                  <tr
-                    key={s.sessionId}
-                    className="table-row-hover"
-                    onClick={() => onNavigate(`/sessions/${s.sessionId}`)}
+            return (
+              <div
+                key={s.sessionId}
+                className="session-row"
+                onClick={() => onNavigate(`/session?id=${s.sessionId}`)}
+                role="button"
+              >
+                {/* Status dot */}
+                <span
+                  style={{
+                    width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
+                    backgroundColor: isFinalized ? '#22C55E' : '#F59E0B'
+                  }}
+                />
+
+                {/* Origin */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.8125rem', color: '#09090B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {s.rootUrl || 'Unknown origin'}
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', color: '#71717A', marginTop: '0.1rem' }}>
+                    {s.sessionId}
+                  </div>
+                </div>
+
+                {/* Meta */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexShrink: 0 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: '#71717A' }}>
+                    <Clock size={11} /> {dur}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', color: '#71717A' }}>
+                    {new Date(s.startedAt).toLocaleDateString()}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.6875rem',
+                      fontWeight: 600,
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: '999px',
+                      backgroundColor: isFinalized ? '#DCFCE7' : '#FEF9C3',
+                      color: isFinalized ? '#166534' : '#854D0E',
+                      border: `1px solid ${isFinalized ? '#BBF7D0' : '#FEF08A'}`,
+                      textTransform: 'capitalize'
+                    }}
                   >
-                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: '#4F46E5', fontWeight: 500 }}>
-                      {s.sessionId}
-                    </td>
-                    <td style={{ fontWeight: 500 }}>{s.rootUrl || 'Unknown'}</td>
-                    <td style={{ color: '#737373' }}>
-                      {new Date(s.startedAt).toLocaleString()}
-                    </td>
-                    <td style={{ color: '#737373' }}>{durationStr}</td>
-                    <td>
-                      <span
-                        style={{
-                          fontSize: '0.75rem',
-                          backgroundColor: '#F3F4F6',
-                          color: '#374151',
-                          padding: '0.2rem 0.5rem',
-                          borderRadius: '4px',
-                          textTransform: 'capitalize'
-                        }}
-                      >
-                        {s.status}
-                      </span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#4F46E5', fontSize: '0.8125rem', fontWeight: 500 }}>
-                        Inspect <ArrowRight size={14} />
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    {s.status}
+                  </span>
+                  <ArrowRight size={14} color="#A1A1AA" />
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

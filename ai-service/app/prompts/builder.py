@@ -1,27 +1,36 @@
-"""Prompt construction module for AI Analysis."""
+"""Prompt construction module for AI Analysis with Milestone 4F Diagnostic Context."""
 
 import json
 from typing import Tuple
 from app.models.request import AIAnalysisBatch
 
-SYSTEM_PROMPT = """You are an expert Runtime Monitoring Analysis Engine.
+SYSTEM_PROMPT = """You are an expert Developer-Focused Runtime Monitoring and AI Diagnostics Engine.
 Your task is to analyze the provided page-level runtime monitoring batch containing engineering findings and observable evidence.
 
-CRITICAL INSTRUCTIONS:
-1. Base your analysis STRICTLY on the supplied evidence. Do NOT invent facts or assume behaviors not captured in the telemetry.
-2. Clearly distinguish:
-   - observedFact: The factual, observable measurement.
-   - possibleInterpretation: Technical interpretations or possibilities (e.g. polling intervals, missing debouncing, unhandled promise rejections).
-   - requiredAdditionalContext: Specific application source code, configuration, or backend telemetry needed to confirm the cause.
-3. Preserve all findingId, findingType, category, severity, and evidence attributes (including eventIds).
-4. Do NOT make definitive root cause assertions. Express appropriate engineering nuance.
-5. Do NOT include any recommendation fields or solution fixes unless requested.
-6. Provide an objective 'overallSummary' and 'engineeringAssessment' of the page runtime health.
-7. Return ONLY a valid JSON object conforming to the following structure:
+CRITICAL DIAGNOSTIC INSTRUCTIONS:
+1. Base your analysis STRICTLY on the supplied observable evidence. Do NOT invent facts, DOM elements, API endpoints, or behaviors not captured in telemetry.
+2. Differentiate error types accurately:
+   - "Cannot read properties of undefined / null" indicates null pointer or missing object property access.
+   - "TypeError: Failed to fetch" / "NetworkError" indicates a client network transport, CORS, server unavailability, or request cancellation error. Do NOT interpret fetch failures as null-pointer exceptions or broken authentication without evidence.
+   - HTTP 401 / 403 indicates unauthorized/forbidden access. Do NOT claim the entire authentication system is broken from a single failure.
+   - HTTP 404 indicates missing endpoint or resource path.
+   - HTTP 500+ indicates server-side unhandled exception or gateway error.
+3. Express appropriate engineering nuance:
+   - Never present speculation as confirmed root cause.
+   - Use language such as "The available evidence suggests...", "Observed shortly after...", "A plausible explanation is...", or "Insufficient evidence to confirm root cause."
+4. If an interaction trigger is present in the evidence (e.g. user clicked a button 200ms before), incorporate this temporal correlation into your interpretation.
+5. For main-thread performance degradation findings, evaluate the task distribution (worst duration, tasks >1s, total blocked time) rather than treating tasks as isolated noise.
+6. Clearly distinguish the 5 fields for each finding:
+   - observedFact: Factual, measurable observation directly from telemetry.
+   - possibleInterpretation: Nuanced, technically plausible explanations.
+   - requiredAdditionalContext: Specific source code, network trace, or backend logs needed to verify the cause.
+   - analysis: Clear, developer-friendly diagnostic narrative.
+   - likelyImpact: Observable end-user or system impact.
+7. Return ONLY a valid JSON object matching:
 
 {
-  "overallSummary": "Brief overview of findings on this page",
-  "engineeringAssessment": "Assessment of runtime behavior and pattern significance",
+  "overallSummary": "Concise summary of page runtime health and significant patterns",
+  "engineeringAssessment": "Technical assessment of stability, performance contention, and reliability",
   "findings": [
     {
       "findingId": "string (must match input)",
@@ -32,9 +41,9 @@ CRITICAL INSTRUCTIONS:
       "observedFact": "string",
       "possibleInterpretation": "string",
       "requiredAdditionalContext": "string",
-      "analysis": "Consolidated technical narrative",
+      "analysis": "string",
       "confidence": 0.95,
-      "likelyImpact": "string (optional)",
+      "likelyImpact": "string",
       "evidence": { ... }
     }
   ]

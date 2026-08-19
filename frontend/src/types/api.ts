@@ -123,4 +123,23 @@ export interface AnalysisOrchestrationResult {
   sessionId: string;
   processedPages: string[];
   batches: string[];
+  mode?: string;
+}
+
+export interface ComponentStatusDto {
+  status: 'connected' | 'disconnected' | 'available' | 'unreachable' | 'degraded';
+  port?: number;
+  provider?: string;
+  url?: string;
+  error?: string;
+}
+
+export interface SystemStatusDto {
+  status: 'healthy' | 'degraded';
+  timestamp: string;
+  components: {
+    applicationApi: ComponentStatusDto;
+    database: ComponentStatusDto;
+    aiService: ComponentStatusDto;
+  };
 }
