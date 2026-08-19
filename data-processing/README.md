@@ -1,53 +1,26 @@
-# Layer 2 — Runtime Monitoring Data Processing
+# Layer 2 — Deterministic Data Processing Engine
 
-This module is the Layer 2 processing foundation for the Runtime Monitoring system. It ingests finalized raw monitoring session packages produced by the Chrome Extension (Layer 1) and transforms them into clean, self-contained, normalized structures.
+Pure TypeScript processing engine that ingests raw telemetry from the browser extension, normalizes session records, and executes deterministic rule-based algorithms to detect runtime findings.
 
-## Architecture Principles
+---
 
-1. **Read-Only / Immutability**: The raw input data from Layer 1 is treated as the immutable source of truth and is never modified.
-2. **1:1 Preservation (No Aggregation)**: Raw observations (console, network, performance) remain individual events without grouping or loss of payload fidelity.
-3. **Explicit Context**: Every normalized event and route embeds complete hierarchical bindings (`sessionId`, `websiteId`, `websiteOrigin`, `pageId`, `routeId`, `tabId`).
-4. **Deterministic**: Normalization produces repeatable, stable output with identical event sorting.
+## Overview
+- **Validation & Normalization**: Validates raw session packages and produces immutable, normalized structures with consistent IDs and hierarchical bindings (`sessionId`, `websiteId`, `pageId`, `routeId`).
+- **Interaction Correlation**: Correlates runtime exceptions and slow network responses with preceding user interactions (e.g. clicking a button within 1000ms prior to the failure).
+- **Deterministic Pattern Detection**: Identifies repeated network calls, unhandled promise rejections, 4xx/5xx HTTP errors, and main-thread blocking bottlenecks.
+- **Batch Preparation**: Structures normalized findings into self-contained page-wise batches ready for AI diagnostic ingestion.
 
-## Usage
+---
 
-```typescript
-import {
-  normalizeSession,
-  validateSessionPackage,
-  aggregateSession,
-  extractInsights,
-  prepareWebsiteBatches,
-  preparePageBatch
-} from './src/index.js';
-
-// 1. Validate a finalized raw session package
-const validation = validateSessionPackage(rawSessionPackage);
-if (!validation.valid) {
-  console.error('Validation errors:', validation.errors);
-}
-
-// 2. Normalize the raw session package
-const normalized = normalizeSession(rawSessionPackage);
-
-// 3. Aggregate repeated patterns within a configurable time window
-const aggregated = aggregateSession(normalized, { windowMs: 5000 });
-
-// 4. Extract deterministic, evidence-backed engineering findings
-const insights = extractInsights(aggregated);
-
-// 5. Prepare page-wise AI analysis batches for a selected website
-const pageBatches = prepareWebsiteBatches(insights, 'web_hidevs_01');
-console.log(`Prepared ${pageBatches.length} page batches for AI analysis:`, pageBatches);
-```
-
-## Running Tests & Build
+## Test & Build
 
 ```bash
-# Run test suite (106 unit & integration tests across Layer 2 & 3A)
+# 1. Install dependencies
+npm install
+
+# 2. Run automated unit & integration test suite
 npm test
 
-# Build TypeScript
+# 3. Compile TypeScript to JavaScript
 npm run build
 ```
-
