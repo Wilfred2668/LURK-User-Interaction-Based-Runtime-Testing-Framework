@@ -24,16 +24,13 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ onNavigate }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
       {/* Fixed Page Header */}
-      <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.25rem', flexShrink: 0 }}>
-        <div>
-          <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: '#09090B', letterSpacing: '-0.025em' }}>Overview</h1>
-          <p style={{ fontSize: '0.8125rem', color: '#71717A', marginTop: '0.2rem' }}>
-            Real-time summary of captured browser runtime sessions.
-          </p>
-        </div>
-        <Button variant="primary" onClick={() => onNavigate('/sessions')}>
-          View All Sessions <ArrowRight size={13} />
-        </Button>
+      <div style={{ marginBottom: '1.25rem', flexShrink: 0 }}>
+        <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#09090B', letterSpacing: '-0.025em' }}>
+          Overview
+        </h1>
+        <p style={{ fontSize: '0.8125rem', color: '#71717A', marginTop: '0.2rem' }}>
+          Real-time summary of captured browser runtime sessions.
+        </p>
       </div>
 
       {/* Fixed Stats */}
@@ -124,7 +121,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ onNavigate }) => {
         />
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingRight: '0.25rem' }}>
-          {sessions.slice(0, 6).map((s) => {
+          {sessions.slice(0, 5).map((s) => {
             const durationSec = Math.round(s.durationMs / 1000);
             const dur = `${Math.floor(durationSec / 60)}m ${durationSec % 60}s`;
             const isFinalized = s.status === 'finalized';
@@ -181,6 +178,16 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ onNavigate }) => {
               </div>
             );
           })}
+
+          <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'center', flexShrink: 0, paddingBottom: '0.5rem' }}>
+            <Button
+              variant="secondary"
+              onClick={() => onNavigate('/sessions')}
+              style={{ fontSize: '0.8125rem', padding: '0.45rem 1.25rem' }}
+            >
+              View All Sessions ({sessions.length}) <ArrowRight size={13} />
+            </Button>
+          </div>
         </div>
       )}
     </div>
